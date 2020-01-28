@@ -205,7 +205,7 @@ class Figure5:
         r2, c2 = skimage.draw.line(Y, X, Y+(int)(L*np.sin(diffangle)), X+(int)(L*np.cos(diffangle)))
         img[r, c] = label
         img[r2, c2] = label
-        sparse = {"y": Y,"x": X,"angle": ANGLE,"startangle": startangle}
+        sparse = [Y, X, ANGLE, startangle]
         return sparse, img, ANGLE, parameters
 
     @staticmethod
