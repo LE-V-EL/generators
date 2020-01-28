@@ -10,7 +10,7 @@ import skimage.draw
 
 class Figure5:
 
-    SIZE = (100, 100)
+    SIZE = (100, 150)
     RANGE = (1, 90) #sizes of angles generated
     POS_RANGE = (20, 80) #position range
     AUTO_SPOT_SIZE = 3 #how big automatic spot is in pixels
@@ -64,7 +64,7 @@ class Figure5:
         sparse_ = [] #sparse of all stimuli
         label_ = [] #label of all stimuli
         parameters = 1 #number of permutations for all 4 combined
-        X = 15
+        X = 18
         XR = X
         if flags[1]:
             XR = X + np.random.randint((-1)*Figure5.WIGGLE, Figure5.WIGGLE)
@@ -110,7 +110,7 @@ class Figure5:
             parameters *= temp[3]
 
         for i in range(1, 4):
-            X = XR = X + 22
+            X = XR = X + 38
             if flags[1]:
                 XR = X + np.random.randint((-1)*Figure5.WIGGLE, Figure5.WIGGLE)
                 parameters *= (Figure5.WIGGLE*2+1)
