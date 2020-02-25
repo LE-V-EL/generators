@@ -7,7 +7,7 @@ from mrcnn import visualize
 
 # we need access to Ian's code
 sys.path.append(os.path.join(os.path.dirname(__file__), 'external/ian/'))
-import figure5
+from figure5 import Figure5
 
 import numpy as np
 import json
@@ -117,8 +117,14 @@ import json
 
 class PartitionedDataset:
 
-    class AngleDataset(utils.Dataset): 
-        def generate(self, count, flags=[True,False,False]):
+    class AngleDataset(utils.Dataset):
+        def __init__(self, p_dataset):
+            # allow the inner class to access the outer class's data
+            self.p_dataset = p_dataset
+            super().__init__()
+
+
+        def generate(self, count):
             '''
             '''
             SETNAME = 'stimuli'
@@ -126,7 +132,9 @@ class PartitionedDataset:
             self.add_class(SETNAME, 1, "angle")
 
             for i in range(count):
-                sparse, mask, angles, parameters = self.random_image(flags)
+
+                sparse, mask, angles, parameters = self.next_image()
+
                 img = mask.copy()
                 img[img>0] = 1 # re-set to binary
                 self.add_image(SETNAME, image_id=i, path=None,
@@ -165,11 +173,29 @@ class PartitionedDataset:
                                             # and each channel of the mask needs to have a single angle
         
         
-        def random_image(self,flags=[True,False,False]):
+        def random_image(self):
             '''
             '''
             
-            return figure5.Figure5.angle(flags)
+            return Figure5.angle(self.p_dataset.flags)
+
+
+
+        def next_image(self):
+            
+            sparse, mask, angles, parameters = self.random_image()
+
+            # so we can use the nice numpy operations
+            label = np.asarray(angles)
+
+            while not self.p_dataset.check_label_euclid(label):
+                sparse, mask, angles, parameters = self.random_image()
+                label = np.asarray(angles)
+
+            self.p_dataset.add_label(label)
+
+            return sparse, mask, angles, parameters
+
 
 
         @staticmethod
@@ -182,15 +208,40 @@ class PartitionedDataset:
                 visualize.display_top_masks(image, mask, class_ids, which.class_names)
 
 
-    def __init__(self, datasets={"train": 500, "val": 50, "test": 50}, flags=[True,False,False]):
 
-        self.datasets = {}
+    def __init__(self, 
+        counts             = {"train": 500, "val": 50, "test": 50}, 
+        flags              = [True,False,False], 
+        distance_threshold = 5):
 
-        for key in datasets:
-            self.datasets[key] = self.AngleDataset()
-            self.datasets[key].generate(datasets[key], flags)
-            self.datasets[key].prepare()
 
+        self.counts = counts
+        self.flags = flags
+        self.distance_threshold = distance_threshold
+
+
+        self.__dataset = {}
+        self.labels = []
+
+        for key in counts:
+            self.__dataset[key] = self.AngleDataset(self)
+            self.__dataset[key].generate(counts[key])
+            self.__dataset[key].prepare()
+
+
+    def dataset(self, name):
+        return self.__dataset[name]
+
+
+    def check_label_euclid(self, label):
+        for existing_label in self.labels:
+            dist = np.linalg.norm(existing_label - label)
+            if dist < self.distance_threshold:
+                return False
+        return True
+
+    def add_label(self, label):
+        self.labels.append(label)
 
     def check_distribution(label, ang_counter, total_counter):
         
