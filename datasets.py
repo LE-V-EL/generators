@@ -11,127 +11,31 @@ from figure5 import Figure5
 
 import numpy as np
 import json
-
-# train_target  = 80000
-# val_target    = 20000
-# test_target   = 20000
-
-# MAX_ANGLE  = 90
-# HEIGHT     = 100
-# WIDTH      = 150
-# NUM_ANGLES = 4
-
-# folder = "output/"
-
-# all_counter   = 0
-
-# train_data = np.zeros((train_target, HEIGHT, WIDTH), dtype=np.float32)
-# train_label = np.zeros((train_target, NUM_ANGLES), dtype=np.float32)
-# train_counter = 0
-
-# val_data = np.zeros((val_target, HEIGHT, WIDTH), dtype=np.float32)
-# val_label = np.zeros((val_target, NUM_ANGLES), dtype=np.float32)
-# val_counter = 0
-
-# test_data = np.zeros((test_target, HEIGHT, WIDTH), dtype=np.float32)
-# test_label = np.zeros((test_target, NUM_ANGLES), dtype=np.float32)
-# test_counter = 0
-
-# train_angles = np.zeros(MAX_ANGLE)
-# val_angles   = np.zeros(MAX_ANGLE)
-# test_angles  = np.zeros(MAX_ANGLE)
-
-# used = set()
-
-# iteration_counter = 0
-
-# while train_counter < train_target or val_counter < val_target or test_counter < test_target:
-    
-#     # sanity checking when running
-#     iteration_counter += 1
-#     if not iteration_counter % 100000:
-#         print(iteration_counter)
-
-#     sparse, image, label, parameters = Figure5.angle(flags=[True, False, False])
-
-#     np_image = image.astype(np.float32)
-    
-#     # adding noise
-#     np_image += np.random.uniform(0, 0.05, (HEIGHT, WIDTH))
-    
-#     sorted_label = tuple(np.sort(label))
-    
-#     if sorted_label not in used:
-                                                                               
-#         if train_counter < train_target and check_distribution(label, train_angles, train_counter):
-            
-#             for angle in label: 
-#                 train_angles[angle - 1] += 1
-
-#             train_data[train_counter] = np_image
-#             train_label[train_counter] = label
-            
-#             pylab.imsave(folder + "train/" + str(train_counter) + ".png", image)
-            
-#             used.add(sorted_label)
-#             train_counter += 1
-#             all_counter += 1
-
-#         #repeat process with other 2 sets of data
-#         elif val_counter < val_target and check_distribution(label, val_angles, val_counter):
-            
-#             for angle in label: 
-#                 val_angles[angle - 1] += 1
-
-#             val_data[val_counter] = np_image
-#             val_label[val_counter] = label
-            
-#             pylab.imsave(folder + "val/" + str(val_counter) + ".png", image)
-            
-#             used.add(sorted_label)
-#             val_counter += 1
-#             all_counter += 1
-
-#         elif test_counter < test_target and check_distribution(label, test_angles, test_counter):
-            
-#             for angle in label: 
-#                 test_angles[angle - 1] += 1
-
-#             test_data[test_counter] = np_image
-#             test_label[test_counter] = label
-            
-#             pylab.imsave(folder + "test/" + str(test_counter) + ".png", image)
-            
-#             used.add(sorted_label)
-#             test_counter += 1
-#             all_counter += 1
-        
-# np.save(folder + "train_data.npy",  train_data)
-# np.save(folder + "train_label.npy", train_label)
-# np.save(folder + "val_data.npy",    val_data)
-# np.save(folder + "val_label.npy",   val_label)
-# np.save(folder + "test_data.npy",   test_data)
-# np.save(folder + "test_label.npy",  test_label)
-
+from statistics import mean 
 
 
 class PartitionedDataset:
 
     class AngleDataset(utils.Dataset):
-        def __init__(self, p_dataset):
+
+        def __init__(self, p_dataset, count):
+            '''
+            '''
             # allow the inner class to access the outer class's data
             self.p_dataset = p_dataset
+            self.count = count
+            self.label_distribution = []
             super().__init__()
 
 
-        def generate(self, count):
+        def generate(self):
             '''
             '''
             SETNAME = 'stimuli'
             
             self.add_class(SETNAME, 1, "angle")
 
-            for i in range(count):
+            for i in range(self.count):
 
                 sparse, mask, angles, parameters = self.next_image()
 
@@ -182,24 +86,85 @@ class PartitionedDataset:
 
 
         def next_image(self):
+            '''
+            '''
             
             sparse, mask, angles, parameters = self.random_image()
 
             # so we can use the nice numpy operations
             label = np.asarray(angles)
 
-            while not self.p_dataset.check_label_euclid(label):
+            while not self.validate_label(label):
                 sparse, mask, angles, parameters = self.random_image()
                 label = np.asarray(angles)
 
-            self.p_dataset.add_label(label)
+            self.add_label(label)
 
             return sparse, mask, angles, parameters
 
 
 
+        def validate_label(self, label):
+            '''
+            '''
+            return self.p_dataset.check_label_euclid(label) and self.check_distribution(label)
+
+
+
+        def check_distribution(self, label):
+            '''
+            '''
+
+            # we dont care until we reach larger amounts
+            if sum(self.label_distribution) < 1000:
+                return True
+            
+            # not adding anything over 110% of the mean amount in each angle bucket
+            threshold = mean(self.label_distribution) * 1.1
+            
+            for element in label:
+                
+                if element > len(self.label_distribution):
+                    self.extend_label_distribution(element)
+                    # recalculate after extending
+                    threshold = mean(self.label_distribution) * 1.1
+
+
+                if self.label_distribution[element - 1] > threshold:
+                    return False
+            
+            return True
+
+
+
+        def extend_label_distribution(self, element):
+            '''
+            '''
+            
+            while len(self.label_distribution) < element:
+                self.label_distribution.append(0)
+
+
+
+        def add_label(self, label):
+            '''
+            '''
+
+            for element in label:
+                
+                if element > len(self.label_distribution):
+                    self.extend_label_distribution(element)
+
+                self.label_distribution[element - 1] += 1
+
+            self.p_dataset.add_label(label)
+
+
+
         @staticmethod
         def show(which, howmany=4):
+            '''
+            '''
 
             image_ids = np.random.choice(which.image_ids, howmany)
             for image_id in image_ids:
@@ -213,9 +178,9 @@ class PartitionedDataset:
         counts             = {"train": 500, "val": 50, "test": 50}, 
         flags              = [True,False,False], 
         distance_threshold = 5):
+        '''
+        '''
 
-
-        self.counts = counts
         self.flags = flags
         self.distance_threshold = distance_threshold
 
@@ -224,37 +189,34 @@ class PartitionedDataset:
         self.labels = []
 
         for key in counts:
-            self.__dataset[key] = self.AngleDataset(self)
-            self.__dataset[key].generate(counts[key])
+            self.__dataset[key] = self.AngleDataset(self, counts[key])
+            self.__dataset[key].generate()
             self.__dataset[key].prepare()
 
 
+
     def dataset(self, name):
+        '''
+        '''
         return self.__dataset[name]
 
 
+
     def check_label_euclid(self, label):
+        '''
+        '''
         for existing_label in self.labels:
             dist = np.linalg.norm(existing_label - label)
             if dist < self.distance_threshold:
                 return False
         return True
 
+
+
     def add_label(self, label):
+        '''
+        '''
         self.labels.append(label)
 
-    def check_distribution(label, ang_counter, total_counter):
-        
-        # we dont care until we reach larger amounts
-        if total_counter < 1000:
-            return True
-        
-        # not adding anything over 110% of the average amount in each angle bucket
-        threshold = (total_counter / len(ang_counter) * NUM_ANGLES) * 1.1
-        
-        for angle in label:
-            if ang_counter[angle - 1] > threshold:
-                return False
-        
-        return True
+
 
