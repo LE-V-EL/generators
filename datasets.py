@@ -11,6 +11,8 @@ from figure5 import Figure5
 
 import numpy as np
 import json
+from operator import add, sub
+from datetime import datetime
 from statistics import mean 
 
 
@@ -25,6 +27,7 @@ class PartitionedDataset:
             self.p_dataset = p_dataset
             self.count = count
             self.label_distribution = []
+            self.itterations = 0
             super().__init__()
 
 
@@ -61,6 +64,7 @@ class PartitionedDataset:
                 
         def load_mask(self, image_id):
             '''
+
             '''
             info = self.image_info[image_id]
             mask = info['mask']
@@ -93,14 +97,27 @@ class PartitionedDataset:
 
             # so we can use the nice numpy operations
             label = np.asarray(angles)
-
+            
+            self.add_itteration()
+            
             while not self.validate_label(label):
+                
                 sparse, mask, angles, parameters = self.random_image()
+                
                 label = np.asarray(angles)
+                
+                self.add_itteration()
 
             self.add_label(label)
 
             return sparse, mask, angles, parameters
+
+
+
+        def add_itteration(self):
+            self.itterations += 1
+            if not self.itterations % 1000 or self.itterations == 100:
+                print("itteration: ", self.itterations)
 
 
 
@@ -177,21 +194,35 @@ class PartitionedDataset:
     def __init__(self, 
         counts             = {"train": 500, "val": 50, "test": 50}, 
         flags              = [True,False,False], 
-        distance_threshold = 5):
+        distance_threshold = 5,
+        naive              = False):
         '''
         '''
 
+        self.counts = counts
         self.flags = flags
         self.distance_threshold = distance_threshold
 
-
         self.__dataset = {}
         self.labels = []
+        self.euclid_table = {}
 
-        for key in counts:
+        self.naive = naive
+
+
+
+    def generate(self):
+
+        startTime = datetime.now()
+
+        for key in self.counts:
             self.__dataset[key] = self.AngleDataset(self, counts[key])
             self.__dataset[key].generate()
             self.__dataset[key].prepare()
+            print("Finished Generating: ", key)
+
+        print("Evaluation time ", datetime.now() - startTime)
+
 
 
 
@@ -203,6 +234,71 @@ class PartitionedDataset:
 
 
     def check_label_euclid(self, label):
+
+        if self.naive:
+            return self.check_label_euclid_naive(label)
+        else:
+            return self.check_label_euclid(label)
+
+
+
+    def add_euclid_label(self, label):
+
+        table = self.euclid_table
+        
+        for index in range(len(label)):
+
+            element = label[index]
+            
+            if index == len(label) - 1:
+                table[element] = True
+
+            elif table.get(element) is None:
+                table[element] = {}
+
+            table = table[element]
+
+
+
+    def check_label_euclid(self, label):
+        
+        table = self.euclid_table
+
+        for element in label:
+
+            next_table = table.get(element)
+
+            if next_table is None:
+                return True
+
+        return False
+
+
+
+    def add_labels_within_threshold(self, label):
+        self.__add_labels_within_threshold(label, label, 0, 0)
+
+
+    def __add_labels_within_threshold(self, base_label, current_label, index, dist):
+        
+        for op in [add, sub]:
+
+            next_label = current_label.copy();
+
+            while dist < self.distance_threshold:
+
+                self.add_euclid_label(next_label)
+
+                if op(index, 1) < len(base_label):
+                    self.__add_labels_within_threshold(base_label, next_label.copy(), op(index, 1), dist)
+
+                next_label[index] += 1
+
+                dist = np.linalg.norm(base_label - next_label)
+
+
+
+    def check_label_euclid_naive(self, label):
         '''
         '''
         for existing_label in self.labels:
@@ -217,6 +313,12 @@ class PartitionedDataset:
         '''
         '''
         self.labels.append(label)
+
+        if not len(self.labels) % 10:
+            print("count: ", len(self.labels))
+        
+        if not self.naive:
+            self.add_labels_within_threshold(label)
 
 
 
