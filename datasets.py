@@ -116,7 +116,7 @@ class PartitionedDataset:
 
         def add_itteration(self):
             self.itterations += 1
-            if not self.itterations % 1000 or self.itterations == 100:
+            if not self.itterations % 1000:
                 print("itteration: ", self.itterations)
 
 
@@ -216,7 +216,7 @@ class PartitionedDataset:
         startTime = datetime.now()
 
         for key in self.counts:
-            self.__dataset[key] = self.AngleDataset(self, counts[key])
+            self.__dataset[key] = self.AngleDataset(self, self.counts[key])
             self.__dataset[key].generate()
             self.__dataset[key].prepare()
             print("Finished Generating: ", key)
@@ -270,6 +270,8 @@ class PartitionedDataset:
 
             if next_table is None:
                 return True
+            else:
+                table = next_table
 
         return False
 
@@ -314,7 +316,7 @@ class PartitionedDataset:
         '''
         self.labels.append(label)
 
-        if not len(self.labels) % 10:
+        if not len(self.labels) % 1000:
             print("count: ", len(self.labels))
         
         if not self.naive:
