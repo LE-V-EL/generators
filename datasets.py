@@ -27,7 +27,6 @@ class PartitionedDataset:
             self.p_dataset = p_dataset
             self.count = count
             self.label_distribution = []
-            self.itterations = 0
             super().__init__()
 
 
@@ -98,7 +97,7 @@ class PartitionedDataset:
             # so we can use the nice numpy operations
             label = np.asarray(angles)
             
-            self.add_itteration()
+            self.p_dataset.add_itteration()
             
             while not self.validate_label(label):
                 
@@ -106,18 +105,11 @@ class PartitionedDataset:
                 
                 label = np.asarray(angles)
                 
-                self.add_itteration()
+                self.p_dataset.add_itteration()
 
             self.add_label(label)
 
             return sparse, mask, angles, parameters
-
-
-
-        def add_itteration(self):
-            self.itterations += 1
-            if not self.itterations % 1000:
-                print("itteration: ", self.itterations)
 
 
 
@@ -202,13 +194,12 @@ class PartitionedDataset:
         self.counts = counts
         self.flags = flags
         self.distance_threshold = distance_threshold
+        self.naive = naive
 
         self.__dataset = {}
         self.labels = []
         self.euclid_table = {}
-
-        self.naive = naive
-
+        self.itterations = 0
 
 
     def generate(self):
@@ -317,10 +308,16 @@ class PartitionedDataset:
         self.labels.append(label)
 
         if not len(self.labels) % 1000:
-            print("count: ", len(self.labels))
+            print("labels: ", len(self.labels))
         
         if not self.naive:
             self.add_labels_within_threshold(label)
+
+
+    def add_itteration(self):
+        self.itterations += 1
+        if not self.itterations % 1000:
+            print("itteration: ", self.itterations)
 
 
 
