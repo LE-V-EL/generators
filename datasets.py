@@ -134,7 +134,9 @@ class PartitionedDataset:
             for element in label:
                 
                 if element > len(self.label_distribution):
+                    
                     self.extend_label_distribution(element)
+                    
                     # recalculate after extending
                     threshold = mean(self.label_distribution) * 1.1
 
@@ -181,7 +183,9 @@ class PartitionedDataset:
                 mask, class_ids = which.load_mask(image_id)
                 visualize.display_top_masks(image, mask, class_ids, which.class_names)
 
-
+    #####################################################################################
+    #
+    #####################################################################################
 
     def __init__(self, 
         counts             = {"train": 500, "val": 50, "test": 50}, 
@@ -216,7 +220,6 @@ class PartitionedDataset:
 
 
 
-
     def dataset(self, name):
         '''
         '''
@@ -229,29 +232,20 @@ class PartitionedDataset:
         if self.naive:
             return self.check_label_euclid_naive(label)
         else:
-            return self.check_label_euclid(label)
+            return self.check_label_euclid_memo(label)
 
 
-
-    def add_euclid_label(self, label):
-
-        table = self.euclid_table
-        
-        for index in range(len(label)):
-
-            element = label[index]
-            
-            if index == len(label) - 1:
-                table[element] = True
-
-            elif table.get(element) is None:
-                table[element] = {}
-
-            table = table[element]
+    def check_label_euclid_naive(self, label):
+        '''
+        '''
+        for existing_label in self.labels:
+            dist = np.linalg.norm(existing_label - label)
+            if dist < self.distance_threshold:
+                return False
+        return True
 
 
-
-    def check_label_euclid(self, label):
+    def check_label_euclid_memo(self, label):
         
         table = self.euclid_table
 
@@ -268,8 +262,22 @@ class PartitionedDataset:
 
 
 
+    def add_label(self, label):
+        '''
+        '''
+        self.labels.append(label)
+
+        if not len(self.labels) % 1000:
+            print("labels: ", len(self.labels))
+        
+        if not self.naive:
+            self.add_labels_within_threshold(label)
+
+
+
     def add_labels_within_threshold(self, label):
         self.__add_labels_within_threshold(label, label, 0, 0)
+
 
 
     def __add_labels_within_threshold(self, base_label, current_label, index, dist):
@@ -291,27 +299,22 @@ class PartitionedDataset:
 
 
 
-    def check_label_euclid_naive(self, label):
-        '''
-        '''
-        for existing_label in self.labels:
-            dist = np.linalg.norm(existing_label - label)
-            if dist < self.distance_threshold:
-                return False
-        return True
+    def add_euclid_label(self, label):
 
-
-
-    def add_label(self, label):
-        '''
-        '''
-        self.labels.append(label)
-
-        if not len(self.labels) % 1000:
-            print("labels: ", len(self.labels))
+        table = self.euclid_table
         
-        if not self.naive:
-            self.add_labels_within_threshold(label)
+        for index in range(len(label)):
+
+            element = label[index]
+            
+            if index == len(label) - 1:
+                table[element] = True
+
+            elif table.get(element) is None:
+                table[element] = {}
+
+            table = table[element]
+
 
 
     def add_itteration(self):
