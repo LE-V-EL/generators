@@ -215,12 +215,26 @@ class PartitionedDataset:
         for key in self.counts:
 
             if self.to_file:
-                dataset = self.AngleDataset(self, self.counts[key])
-                dataset.generate()
-                dataset.prepare()
-                dataset.p_dataset = None
-                with open(key + ".p", "wb") as file:
-                    pickle.dump(dataset, file)
+                count = self.counts[key]
+                current_dataset = 0
+                while count > 0:
+                    
+                    dataset_count = 0
+                    if count > 10000:
+                        dataset_count = 10000
+                    else:
+                        dataset_count = count
+                    
+                    dataset = self.AngleDataset(self, dataset_count)
+                    dataset.generate()
+                    dataset.prepare()
+                    dataset.p_dataset = None
+
+                    with open("output/" + str(key) + "_" + str(current_dataset) + ".p", "wb") as file:
+                        pickle.dump(dataset, file)
+
+                    count -= 10000
+                    current_dataset += 1
 
             else:
                 self.__dataset[key] = self.AngleDataset(self, self.counts[key])
