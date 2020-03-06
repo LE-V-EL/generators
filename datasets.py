@@ -14,7 +14,7 @@ import json
 from operator import add, sub
 from datetime import datetime
 from statistics import mean 
-
+import pickle
 
 class PartitionedDataset:
 
@@ -190,8 +190,9 @@ class PartitionedDataset:
     def __init__(self, 
         counts             = {"train": 500, "val": 50, "test": 50}, 
         flags              = [True,False,False], 
-        distance_threshold = 5,
-        naive              = False):
+        distance_threshold = 5.0,
+        naive              = False,
+        to_file            = True):
         '''
         '''
 
@@ -199,6 +200,7 @@ class PartitionedDataset:
         self.flags = flags
         self.distance_threshold = distance_threshold
         self.naive = naive
+        self.to_file = to_file
 
         self.__dataset = {}
         self.labels = []
@@ -211,9 +213,20 @@ class PartitionedDataset:
         startTime = datetime.now()
 
         for key in self.counts:
-            self.__dataset[key] = self.AngleDataset(self, self.counts[key])
-            self.__dataset[key].generate()
-            self.__dataset[key].prepare()
+
+            if self.to_file:
+                dataset = self.AngleDataset(self, self.counts[key])
+                dataset.generate()
+                dataset.prepare()
+                dataset.p_dataset = None
+                with open(key + ".p", "wb") as file:
+                    pickle.dump(dataset, file)
+
+            else:
+                self.__dataset[key] = self.AngleDataset(self, self.counts[key])
+                self.__dataset[key].generate()
+                self.__dataset[key].prepare()
+
             print("Finished Generating: ", key)
 
         print("Evaluation time ", datetime.now() - startTime)
@@ -235,31 +248,40 @@ class PartitionedDataset:
             return self.check_label_euclid_memo(label)
 
 
-    def check_label_euclid_naive(self, label):
+    def check_label_euclid_naive(self, label, label_set=None, print_failure=False):
         '''
         '''
-        for existing_label in self.labels:
+        if label_set is None:
+            label_set = self.labels
+
+        for existing_label in label_set:
             dist = np.linalg.norm(existing_label - label)
             if dist < self.distance_threshold:
+                if print_failure:
+                    print("Naive Validation Failure")
+                    print("Label to Add :", label)
+                    print("Existing Label: ", existing_label)
                 return False
         return True
 
 
+
     def check_label_euclid_memo(self, label):
         
-        table = self.euclid_table
+        return not self.euclid_table.get("-".join(label.astype(str)))
 
-        for element in label:
 
-            next_table = table.get(element)
 
-            if next_table is None:
-                return True
-            else:
-                table = next_table
+    def validate_labels(self):
+        for index in range(len(self.labels) - 1):
 
-        return False
+            if not index % 1000:
+                print("validating: ", index)
 
+            if not self.check_label_euclid_naive(self.labels[index], self.labels[index + 1:], print_failure=True):
+                return False
+        
+        return True
 
 
     def add_label(self, label):
@@ -280,20 +302,23 @@ class PartitionedDataset:
 
 
 
-    def __add_labels_within_threshold(self, base_label, current_label, index, dist):
-        
+    def __add_labels_within_threshold(self, base_label, current_label, index, old_dist):
+
         for op in [add, sub]:
+
+            dist = old_dist
 
             next_label = current_label.copy();
 
             while dist < self.distance_threshold:
 
+
                 self.add_euclid_label(next_label)
 
-                if op(index, 1) < len(base_label):
-                    self.__add_labels_within_threshold(base_label, next_label.copy(), op(index, 1), dist)
+                if index + 1 < len(base_label):
+                    self.__add_labels_within_threshold(base_label, next_label.copy(), index + 1, dist)
 
-                next_label[index] += 1
+                next_label[index] = op(next_label[index], 1)
 
                 dist = np.linalg.norm(base_label - next_label)
 
@@ -301,19 +326,7 @@ class PartitionedDataset:
 
     def add_euclid_label(self, label):
 
-        table = self.euclid_table
-        
-        for index in range(len(label)):
-
-            element = label[index]
-            
-            if index == len(label) - 1:
-                table[element] = True
-
-            elif table.get(element) is None:
-                table[element] = {}
-
-            table = table[element]
+        self.euclid_table["-".join(label.astype(str))] = True
 
 
 
