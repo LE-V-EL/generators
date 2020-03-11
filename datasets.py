@@ -190,7 +190,7 @@ class PartitionedDataset:
     def __init__(self, 
         counts             = {"train": 500, "val": 50, "test": 50}, 
         flags              = [True,False,False], 
-        distance_threshold = 5.0,
+        distance_threshold = 3.0,
         naive              = False,
         to_file            = True):
         '''
@@ -220,7 +220,7 @@ class PartitionedDataset:
                 while count > 0:
                     
                     dataset_count = 0
-                    if count > 10000:
+                    if count >= 10000:
                         dataset_count = 10000
                     else:
                         dataset_count = count
