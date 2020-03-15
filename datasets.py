@@ -27,6 +27,11 @@ class PartitionedDataset:
             self.p_dataset = p_dataset
             self.count = count
             self.label_distribution = []
+            
+            self.label = []
+            self.image = []
+            self.mask  = []
+            
             super().__init__()
 
 
@@ -39,14 +44,22 @@ class PartitionedDataset:
 
             for i in range(self.count):
 
-                sparse, mask, angles, parameters = self.next_image()
+                sparse, mask, label, parameters = self.next_image()
 
-                img = mask.copy()
-                img[img>0] = 1 # re-set to binary
-                self.add_image(SETNAME, image_id=i, path=None,
-                              image=img, sparse=sparse, parameters=parameters,
-                              mask=mask,
-                              angles=angles)
+                image = mask.copy()
+                image[image>0] = 1 # re-set to binary
+
+                if self.p_dataset.to_file:
+
+                    self.label.append(label)
+                    self.image.append(image)
+                    self.mask.append(mask)
+                
+                else:
+                    self.add_image(SETNAME, image_id=i, path=None,
+                                   image=image, sparse=sparse, parameters=parameters,
+                                   mask=mask,
+                                   angles=label)
 
                 
         def load_image(self, image_id):
@@ -60,7 +73,7 @@ class PartitionedDataset:
             
             return (loaded_img_3D*255).astype(np.uint8)
             
-                
+            
         def load_mask(self, image_id):
             '''
 
@@ -215,26 +228,8 @@ class PartitionedDataset:
         for key in self.counts:
 
             if self.to_file:
-                count = self.counts[key]
-                current_dataset = 0
-                while count > 0:
-                    
-                    dataset_count = 0
-                    if count >= 10000:
-                        dataset_count = 10000
-                    else:
-                        dataset_count = count
-                    
-                    dataset = self.AngleDataset(self, dataset_count)
-                    dataset.generate()
-                    dataset.prepare()
-                    dataset.p_dataset = None
 
-                    with open("output/" + str(key) + "_" + str(current_dataset) + ".p", "wb") as file:
-                        pickle.dump(dataset, file)
-
-                    count -= 10000
-                    current_dataset += 1
+                self.generate_to_file(key)
 
             else:
                 self.__dataset[key] = self.AngleDataset(self, self.counts[key])
@@ -247,6 +242,44 @@ class PartitionedDataset:
 
 
 
+    def generate_to_file(self, key):
+        '''
+        '''
+        count = self.counts[key]
+        current_dataset = 0
+        
+        while count > 0:
+            
+            dataset_count = 0
+            if count >= 10000:
+                dataset_count = 10000
+            else:
+                dataset_count = count
+            
+            dataset = self.AngleDataset(self, dataset_count)
+            dataset.generate()
+            dataset.prepare()
+            dataset.p_dataset = None
+
+            folder = "output/" + str(key) + "/"
+
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+
+
+            for attribute in ['label', 'image', 'mask', 'label_distribution']:
+
+                file = folder + attribute + "_" + str(current_dataset) + ".npy"
+
+                np.save(file, np.asarray(getattr(dataset, attribute)))
+
+            del dataset
+            
+            count -= 10000
+            current_dataset += 1
+
+
+
     def dataset(self, name):
         '''
         '''
@@ -255,7 +288,12 @@ class PartitionedDataset:
 
 
     def check_label_euclid(self, label):
-
+        '''
+        Function to check if a label is within a certain euclidian distance
+        of a label already added to the dataset, and so be invalid to add.
+        This can be done in a naive fashion or one where all invalid labels
+        are memoized.
+        '''
         if self.naive:
             return self.check_label_euclid_naive(label)
         else:
@@ -287,6 +325,12 @@ class PartitionedDataset:
 
 
     def validate_labels(self):
+        '''
+        This checks if all labels in the PartitonedDataset are not within
+        the euclidian distance threshold of each other, useful for testing 
+        that the memoized process for adding labels to the table is working
+        properly.
+        '''
         for index in range(len(self.labels) - 1):
 
             if not index % 1000:
@@ -300,6 +344,10 @@ class PartitionedDataset:
 
     def add_label(self, label):
         '''
+        Adds label to overall PartitionedDataset. If it is not in naive mode
+        then all of the potencial labels that are within the euclidian distance
+        threshold of the label to add are calculated and added to the memoized
+        lookup table.
         '''
         self.labels.append(label)
 
@@ -312,6 +360,10 @@ class PartitionedDataset:
 
 
     def add_labels_within_threshold(self, label):
+        '''
+        Adds all possibly labels within the euclidian distance threshold
+        to the memoized euclidian distance lookup table.
+        '''
         self.__add_labels_within_threshold(label, label, 0, 0)
 
 
@@ -339,7 +391,9 @@ class PartitionedDataset:
 
 
     def add_euclid_label(self, label):
-
+        '''
+        Adds a label to the euclidian distance lookup table.
+        '''
         self.euclid_table["-".join(label.astype(str))] = True
 
 
