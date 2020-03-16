@@ -31,6 +31,7 @@ class PartitionedDataset:
             self.label = []
             self.image = []
             self.mask  = []
+            self.bbox  = []
             
             super().__init__()
 
@@ -54,6 +55,15 @@ class PartitionedDataset:
                     self.label.append(label)
                     self.image.append(image)
                     self.mask.append(mask)
+                    
+                    # copied from maskrcnn/utils.py
+                    n_mask = np.array(mask)
+                    _idx = np.sum(n_mask, axis=(0, 1)) > 0
+                    n_mask = n_mask[:, :, _idx]
+
+                    bbox = utils.extract_bboxes(n_mask)
+
+                    self.bbox.append(bbox)
                 
                 else:
                     self.add_image(SETNAME, image_id=i, path=None,
@@ -205,20 +215,22 @@ class PartitionedDataset:
         flags              = [True,False,False], 
         distance_threshold = 3.0,
         naive              = False,
-        to_file            = True):
+        to_file            = True,
+        batch              = True):
         '''
         '''
 
-        self.counts = counts
-        self.flags = flags
+        self.counts             = counts
+        self.flags              = flags
         self.distance_threshold = distance_threshold
-        self.naive = naive
-        self.to_file = to_file
+        self.naive              = naive
+        self.to_file            = to_file
+        self.batch              = batch 
 
-        self.__dataset = {}
-        self.labels = []
+        self.__dataset    = {}
+        self.labels       = []
         self.euclid_table = {}
-        self.itterations = 0
+        self.itterations  = 0
 
 
     def generate(self):
@@ -251,7 +263,10 @@ class PartitionedDataset:
         while count > 0:
             
             dataset_count = 0
-            if count >= 10000:
+
+            if not self.batch:
+                dataset_count = count
+            elif count >= 10000:
                 dataset_count = 10000
             else:
                 dataset_count = count
@@ -261,21 +276,33 @@ class PartitionedDataset:
             dataset.prepare()
             dataset.p_dataset = None
 
-            folder = "output/" + str(key) + "/"
+            folder = "output/"
 
             if not os.path.exists(folder):
                 os.makedirs(folder)
 
 
-            for attribute in ['label', 'image', 'mask', 'label_distribution']:
+            data = []
 
-                file = folder + attribute + "_" + str(current_dataset) + ".npy"
 
-                np.save(file, np.asarray(getattr(dataset, attribute)))
+            for attribute in ['image', 'mask', 'label', 'bbox']:
+
+                data.append(getattr(dataset, attribute))
+
+
+
+            file = folder + key + "_" + str(current_dataset) + ".npy"
+            
+            np.save(file, np.asarray(data))
+
+
 
             del dataset
             
-            count -= 10000
+            if self.batch:
+                count -= 10000
+            else:
+                count = 0
             current_dataset += 1
 
 
