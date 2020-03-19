@@ -6,8 +6,8 @@ from mrcnn import utils
 from mrcnn import visualize
 
 # we need access to Ian's code
-sys.path.append(os.path.join(os.path.dirname(__file__), 'external/ian/'))
-from figure5 import Figure5
+#sys.path.append(os.path.join(os.path.dirname(__file__), 'external/ian/'))
+from angle import Figure5
 
 import numpy as np
 import json
@@ -41,7 +41,7 @@ class PartitionedDataset:
             '''
             SETNAME = 'stimuli'
             
-            self.add_class(SETNAME, 1, "angle")
+            self.add_class(SETNAME, 1, self.p_dataset.mode)
 
             for i in range(self.count):
 
@@ -109,7 +109,7 @@ class PartitionedDataset:
 
             image_function = getattr(self.p_dataset, self.p_dataset.mode)
             
-            return image_function(self.p_dataset.flags)
+            return image_function(flags=self.p_dataset.flags)
 
 
 
@@ -191,7 +191,7 @@ class PartitionedDataset:
                 if element > len(self.label_distribution):
                     self.extend_label_distribution(element)
 
-                self.label_distribution[element - 1] += 1
+                self.label_distribution[int(element) - 1] += 1
 
             self.p_dataset.add_label(label)
 
@@ -247,14 +247,9 @@ class PartitionedDataset:
             'curvature'
         ]
 
-        self.position_non_aligned_scale = Figure5.position_non_aligned_scale
-        self.position_common_scale      = Figure5.position_common_scale
-        self.angle                      = Figure5.angle
-        self.length                     = Figure5.length
-        self.direction                  = Figure5.direction
-        self.area                       = Figure5.area
-        self.volume                     = Figure5.volume
-        self.curvature                  = Figure5.curvature
+        for function in self.mode_list:
+            setattr(self, function, getattr(Figure5, function))
+
 
 
     def generate(self):
