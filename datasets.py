@@ -26,7 +26,7 @@ class PartitionedDataset:
             # allow the inner class to access the outer class's data
             self.p_dataset = p_dataset
             self.count = count
-            self.label_distribution = []
+            self.label_distribution = {}
             
             self.label = []
             self.image = []
@@ -150,35 +150,18 @@ class PartitionedDataset:
             '''
 
             # we dont care until we reach larger amounts
-            if sum(self.label_distribution) < 1000:
+            if sum(self.label_distribution.values()) < 1000:
                 return True
             
             # not adding anything over 110% of the mean amount in each angle bucket
-            threshold = mean(self.label_distribution) * 1.1
+            threshold = mean(self.label_distribution.values()) * 1.1
             
             for element in label:
-                
-                if element > len(self.label_distribution):
-                    
-                    self.extend_label_distribution(element)
-                    
-                    # recalculate after extending
-                    threshold = mean(self.label_distribution) * 1.1
 
-
-                if self.label_distribution[element - 1] > threshold:
+                if self.label_distribution[str(element)] > threshold:
                     return False
             
             return True
-
-
-
-        def extend_label_distribution(self, element):
-            '''
-            '''
-            
-            while len(self.label_distribution) < element:
-                self.label_distribution.append(0)
 
 
 
@@ -187,11 +170,8 @@ class PartitionedDataset:
             '''
 
             for element in label:
-                
-                if element > len(self.label_distribution):
-                    self.extend_label_distribution(element)
 
-                self.label_distribution[int(element) - 1] += 1
+                self.label_distribution[str(element)] = 1 + self.label_distribution.get(str(element), 0)
 
             self.p_dataset.add_label(label)
 
@@ -209,8 +189,19 @@ class PartitionedDataset:
                 visualize.display_top_masks(image, mask, class_ids, which.class_names)
 
     #####################################################################################
-    #
+    # PartitionedDataset
     #####################################################################################
+
+    mode_list = [
+        'position_non_aligned_scale',
+        'position_common_scale',
+        'angle',
+        'length',
+        'direction',
+        'area',
+        'volume',
+        'curvature'
+    ]
 
     def __init__(self, 
         counts             = {"train": 500, "val": 50, "test": 50}, 
@@ -236,18 +227,9 @@ class PartitionedDataset:
         self.euclid_table = {}
         self.itterations  = 0
 
-        self.mode_list = [
-            'position_non_aligned_scale',
-            'position_common_scale',
-            'angle',
-            'length',
-            'direction',
-            'area',
-            'volume',
-            'curvature'
-        ]
 
-        for function in self.mode_list:
+
+        for function in PartitionedDataset.mode_list:
             setattr(self, function, getattr(Figure5, function))
 
 
