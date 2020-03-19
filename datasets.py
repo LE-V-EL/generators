@@ -158,7 +158,7 @@ class PartitionedDataset:
             
             for element in label:
 
-                if self.label_distribution[str(element)] > threshold:
+                if self.label_distribution.get(str(element), 0) > threshold:
                     return False
             
             return True
@@ -237,6 +237,8 @@ class PartitionedDataset:
     def generate(self):
 
         startTime = datetime.now()
+
+        print("Generating dataset of class: ", self.mode)
 
         for key in self.counts:
 
@@ -393,7 +395,14 @@ class PartitionedDataset:
         Adds all possibly labels within the euclidian distance threshold
         to the memoized euclidian distance lookup table.
         '''
-        self.__add_labels_within_threshold(label, label, 0, 0)
+
+        # exception for length because there is too little space to do 
+        # the full euclidian distance caluclation and allow for a dataset
+        # of any size
+        if self.mode == "length":
+            self.add_euclid_label(label)
+        else:
+            self.__add_labels_within_threshold(label, label, 0, 0)
 
 
 
