@@ -18,7 +18,7 @@ import pickle
 
 class PartitionedDataset:
 
-    class AngleDataset(utils.Dataset):
+    class SubDataset(utils.Dataset):
 
         def __init__(self, p_dataset, count):
             '''
@@ -106,8 +106,10 @@ class PartitionedDataset:
         def random_image(self):
             '''
             '''
+
+            image_function = getattr(self.p_dataset, self.p_dataset.mode)
             
-            return Figure5.angle(self.p_dataset.flags)
+            return image_function(self.p_dataset.flags)
 
 
 
@@ -115,24 +117,24 @@ class PartitionedDataset:
             '''
             '''
             
-            sparse, mask, angles, parameters = self.random_image()
+            sparse, mask, label, parameters = self.random_image()
 
             # so we can use the nice numpy operations
-            label = np.asarray(angles)
+            label = np.asarray(label)
             
             self.p_dataset.add_itteration()
             
             while not self.validate_label(label):
                 
-                sparse, mask, angles, parameters = self.random_image()
+                sparse, mask, label, parameters = self.random_image()
                 
-                label = np.asarray(angles)
+                label = np.asarray(label)
                 
                 self.p_dataset.add_itteration()
 
             self.add_label(label)
 
-            return sparse, mask, angles, parameters
+            return sparse, mask, label, parameters
 
 
 
@@ -216,7 +218,8 @@ class PartitionedDataset:
         distance_threshold = 3.0,
         naive              = False,
         to_file            = True,
-        batch              = True):
+        batch              = True,
+        mode               = 'angle'):
         '''
         '''
 
@@ -226,11 +229,32 @@ class PartitionedDataset:
         self.naive              = naive
         self.to_file            = to_file
         self.batch              = batch 
+        self.mode               = mode
 
         self.__dataset    = {}
         self.labels       = []
         self.euclid_table = {}
         self.itterations  = 0
+
+        self.mode_list = [
+            'position_non_aligned_scale',
+            'position_common_scale',
+            'angle',
+            'length',
+            'direction',
+            'area',
+            'volume',
+            'curvature'
+        ]
+
+        self.position_non_aligned_scale = Figure5.position_non_aligned_scale
+        self.position_common_scale      = Figure5.position_common_scale
+        self.angle                      = Figure5.angle
+        self.length                     = Figure5.length
+        self.direction                  = Figure5.direction
+        self.area                       = Figure5.area
+        self.volume                     = Figure5.volume
+        self.curvature                  = Figure5.curvature
 
 
     def generate(self):
@@ -244,7 +268,7 @@ class PartitionedDataset:
                 self.generate_to_file(key)
 
             else:
-                self.__dataset[key] = self.AngleDataset(self, self.counts[key])
+                self.__dataset[key] = self.SubDataset(self, self.counts[key])
                 self.__dataset[key].generate()
                 self.__dataset[key].prepare()
 
@@ -257,6 +281,12 @@ class PartitionedDataset:
     def generate_to_file(self, key):
         '''
         '''
+
+        folder = "output/" + self.mode + "/"
+
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
         count = self.counts[key]
         current_dataset = 0
         
@@ -271,15 +301,10 @@ class PartitionedDataset:
             else:
                 dataset_count = count
             
-            dataset = self.AngleDataset(self, dataset_count)
+            dataset = self.SubDataset(self, dataset_count)
             dataset.generate()
             dataset.prepare()
             dataset.p_dataset = None
-
-            folder = "output/"
-
-            if not os.path.exists(folder):
-                os.makedirs(folder)
 
 
             data = []
