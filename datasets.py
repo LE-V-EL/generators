@@ -285,19 +285,14 @@ class PartitionedDataset:
             dataset.prepare()
             dataset.p_dataset = None
 
+            image = np.stack(dataset.image, axis=0 )
+            mask  = np.stack(dataset.mask, axis=0 )
+            label = np.stack(dataset.label, axis=0 )
+            bbox  = np.stack(dataset.bbox, axis=0 )
 
-            data = []
+            file = folder + key + "_" + str(current_dataset) + ".npz"
 
-
-            for attribute in ['image', 'mask', 'label', 'bbox']:
-
-                data.append(getattr(dataset, attribute))
-
-
-
-            file = folder + key + "_" + str(current_dataset) + ".npy"
-            
-            np.save(file, np.asarray(data))
+            np.savez(file, image=image, mask=mask, label=label, bbox=bbox)
 
 
 
