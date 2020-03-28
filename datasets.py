@@ -170,7 +170,7 @@ class PartitionedDataset:
         counts             = {"train": 500, "val": 50, "test": 50}, 
         flags              = [True,False,False], 
         distance_threshold = 3.0,
-        naive              = False,\
+        naive              = False,
         batch              = True,
         mode               = 'angle'):
         '''
