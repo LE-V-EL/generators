@@ -402,7 +402,7 @@ class LoadedDataset(utils.Dataset):
         '''
         '''
 
-        data        = np.load(file)
+        data = np.load(file)
 
         # pulling all data out of npz file
         loaded_data = dict(map(lambda parameter: ( parameter, data[parameter] ), data.keys()))
@@ -451,6 +451,7 @@ class LoadedDataset(utils.Dataset):
         return mask, np.ones(mask.shape[2], dtype='uint8')
 
 
+
     def show(self, howmany=1):
 
         image_ids = np.random.choice(self.image_ids, howmany)
@@ -462,3 +463,16 @@ class LoadedDataset(utils.Dataset):
             mask, class_ids = self.load_mask(image_id)
 
             visualize.display_top_masks(image, mask, class_ids, self.class_names)
+
+
+
+    def show_bbox(self, image_id):
+
+        image = self.load_image(image_id)
+
+        mask, class_ids = self.load_mask(image_id)
+
+        bbox = self.image_info[image_id]['bbox']
+
+        visualize.display_instances(image, bbox, mask, class_ids,
+                            self.class_names, figsize=(8, 8))
