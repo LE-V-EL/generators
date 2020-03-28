@@ -401,7 +401,10 @@ class LoadedDataset(utils.Dataset):
     def generate(self, file):
         '''
         '''
+
         data        = np.load(file)
+
+        # pulling all data out of npz file
         loaded_data = dict(map(lambda parameter: ( parameter, data[parameter] ), data.keys()))
 
         SETNAME = 'stimuli'
@@ -442,15 +445,20 @@ class LoadedDataset(utils.Dataset):
     def load_mask(self, image_id):
         '''
         '''
-        return self.image_info[image_id]['mask'], np.ones(len(mask)) # it is always class 1 but four times 
+        mask = self.image_info[image_id]['mask']
+
+        # it is always class 1 but for the amount of stimuli
+        return mask, np.ones(mask.shape[2], dtype='uint8')
 
 
+    def show(self, howmany=1):
 
-    @staticmethod
-    def show(which, howmany=4):
-
-        image_ids = np.random.choice(which.image_ids, howmany)
+        image_ids = np.random.choice(self.image_ids, howmany)
+        
         for image_id in image_ids:
-            image = which.load_image(image_id)
-            mask, class_ids = which.load_mask(image_id)
-            visualize.display_top_masks(image, mask, class_ids, which.class_names)
+            
+            image = self.load_image(image_id)
+            
+            mask, class_ids = self.load_mask(image_id)
+
+            visualize.display_top_masks(image, mask, class_ids, self.class_names)
