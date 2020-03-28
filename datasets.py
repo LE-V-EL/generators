@@ -49,6 +49,9 @@ class PartitionedDataset:
                 image = premask.copy()
                 image[image>0] = 1 # re-set to binary
 
+                # adding 5% noise
+                image += np.random.uniform(0, 0.05, image.shape)
+
                 mask = np.zeros((premask.shape[0],premask.shape[1], len(label)), dtype=np.uint8)
 
                 for i in range(len(label)):
