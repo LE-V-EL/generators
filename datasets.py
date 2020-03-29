@@ -1,29 +1,48 @@
 import os, sys
 
+import numpy as np
+
 # we need access to the MaskR-CNN code
 sys.path.append(os.path.join(os.path.dirname(__file__), 'external/mask_rcnn/'))
 from mrcnn import utils
 from mrcnn import visualize
 
-# we need access to Ian's code
-#sys.path.append(os.path.join(os.path.dirname(__file__), 'external/ian/'))
 from angle import Figure5
 
-import numpy as np
-import json
 from operator import add, sub
 from datetime import datetime
-from statistics import mean 
-import pickle
+from statistics import mean
 
 
-class PartitionedDataset:
+class DatasetGenerator:
+
+
+    mode_list = [
+        'position_non_aligned_scale',
+        'position_common_scale',
+        'angle',
+        'length',
+        'direction',
+        'area',
+        'volume',
+        'curvature'
+    ]
+
+    dataset_components = [
+        'label',
+        'image',
+        'mask',
+        'bbox',
+        'sparse',
+        'parameters'
+    ]
 
 #####################################################################################
 # SubDataset
 #####################################################################################
 
-    class SubDataset():
+    class SubDataset:
+
 
         def __init__(self, p_dataset, count):
             '''
@@ -32,12 +51,9 @@ class PartitionedDataset:
             self.p_dataset = p_dataset
             self.count = count
             self.label_distribution = {}
-            
-            self.label = []
-            self.image = []
-            self.mask  = []
-            self.bbox  = []
 
+            for component in DatasetGenerator.dataset_components:
+                setattr(self, component, [])
 
         def generate(self):
             '''
@@ -52,7 +68,7 @@ class PartitionedDataset:
                 # adding 5% noise
                 image += np.random.uniform(0, 0.05, image.shape)
 
-                mask = np.zeros((premask.shape[0],premask.shape[1], len(label)), dtype=np.uint8)
+                mask = np.zeros((premask.shape[0], premask.shape[1], len(label)), dtype=np.uint8)
 
                 for i in range(len(label)):
                     filtered_mask = premask.copy()
@@ -63,20 +79,13 @@ class PartitionedDataset:
                 self.label.append(label)
                 self.image.append(image)
                 self.mask.append(mask)
-                
-                bbox = []
-
-                for i in range(len(label)):
-                    bbox.append 
-
-                # copied from maskrcnn/utils.py
-                #n_mask = np.array(mask)
-                #_idx = np.sum(n_mask, axis=(0, 1)) > 0
-                #n_mask = n_mask[:, :, _idx]
+                self.sparse.append(sparse)
 
                 bbox = utils.extract_bboxes(mask)
 
                 self.bbox.append(bbox)
+
+                self.parameters.append(parameters)
 
 
 
@@ -152,29 +161,16 @@ class PartitionedDataset:
 
 
 #####################################################################################
-# PartitionedDataset
+# DatasetGenerator
 #####################################################################################
 
-    mode_list = [
-        'position_non_aligned_scale',
-        'position_common_scale',
-        'angle',
-        'length',
-        'direction',
-        'area',
-        'volume',
-        'curvature'
-    ]
-
-    def __init__(self, 
-        counts             = {"train": 500, "val": 50, "test": 50}, 
-        flags              = [True,False,False], 
+    def __init__(self,
+        counts             = {"train": 500, "val": 50, "test": 50},
+        flags              = [True,False,False],
         distance_threshold = 3.0,
         naive              = False,
         batch              = True,
         mode               = 'angle'):
-        '''
-        '''
 
         self.counts             = counts
         self.flags              = flags
@@ -183,27 +179,50 @@ class PartitionedDataset:
         self.batch              = batch
         self.mode               = mode
 
-        self.__dataset    = {}
+        self.folder = "output/" + self.mode + "/"
+
         self.labels       = []
         self.euclid_table = {}
         self.itterations  = 0
 
-
-
-        for function in PartitionedDataset.mode_list:
+        for function in DatasetGenerator.mode_list:
             setattr(self, function, getattr(Figure5, function))
 
 
 
     def generate(self):
-
+        '''
+        '''
         startTime = datetime.now()
 
         print("Generating dataset of class: ", self.mode)
 
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+
         for key in self.counts:
 
-            self.__generate_to_file(key)
+            count = self.counts[key]
+            dataset_number = 0
+
+            while count > 0:
+                
+                dataset_count = 0
+
+                if not self.batch:
+                    dataset_count = count
+                elif count >= 10000:
+                    dataset_count = 10000
+                else:
+                    dataset_count = count
+
+                self.generate_subdataset_and_save(key, dataset_count, dataset_number)
+                
+                if self.batch:
+                    count -= 10000
+                else:
+                    count = 0
+                dataset_number += 1
 
             print("Finished Generating: ", key)
 
@@ -211,49 +230,25 @@ class PartitionedDataset:
 
 
 
-    def __generate_to_file(self, key):
+    def generate_subdataset_and_save(self, name, dataset_count, dataset_number):
         '''
         '''
+        dataset = self.SubDataset(self, dataset_count)
+        dataset.generate()
+        dataset.p_dataset = None
 
-        folder = "output/" + self.mode + "/"
+        # pulling out data and transforming it to save
+        save_data = dict( map(
+            lambda component : ( component, np.stack( getattr(dataset, component), axis=0 ) ),
+            DatasetGenerator.dataset_components
+        ))
 
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        file = self.folder + name + "_" + str(dataset_number) + ".npz"
 
-        count = self.counts[key]
-        current_dataset = 0
-        
-        while count > 0:
-            
-            dataset_count = 0
+        np.savez(file, **save_data)
 
-            if not self.batch:
-                dataset_count = count
-            elif count >= 10000:
-                dataset_count = 10000
-            else:
-                dataset_count = count
-            
-            dataset = self.SubDataset(self, dataset_count)
-            dataset.generate()
-            dataset.p_dataset = None
+        del dataset
 
-            image = np.stack(dataset.image, axis=0 )
-            mask  = np.stack(dataset.mask, axis=0 )
-            label = np.stack(dataset.label, axis=0 )
-            bbox  = np.stack(dataset.bbox, axis=0 )
-
-            file = folder + key + "_" + str(current_dataset) + ".npz"
-
-            np.savez(file, image=image, mask=mask, label=label, bbox=bbox)
-
-            del dataset
-            
-            if self.batch:
-                count -= 10000
-            else:
-                count = 0
-            current_dataset += 1
 
 
 
@@ -297,7 +292,7 @@ class PartitionedDataset:
 
     def validate_labels(self):
         '''
-        This checks if all labels in the PartitonedDataset are not within
+        This checks if all labels in the DatasetGenerator are not within
         the euclidian distance threshold of each other, useful for testing 
         that the memoized process for adding labels to the table is working
         properly.
@@ -315,7 +310,7 @@ class PartitionedDataset:
 
     def add_label(self, label):
         '''
-        Adds label to overall PartitionedDataset. If it is not in naive mode
+        Adds label to overall DatasetGenerator. If it is not in naive mode
         then all of the potencial labels that are within the euclidian distance
         threshold of the label to add are calculated and added to the memoized
         lookup table.
@@ -384,48 +379,46 @@ class PartitionedDataset:
 
 
 #####################################################################################
-# LoadedDataset
+# DatasetFromFile
 #####################################################################################
 
-class LoadedDataset(utils.Dataset):
+class DatasetFromFile(utils.Dataset):
 
-    def __init__(self, file = 'output/angle/train_0.npz'):
+    def __init__(self, file):
         
         super().__init__()
 
-        self.generate(file)
-        self.prepare()
+        self.file = file
 
 
 
-    def generate(self, file):
+    def load_from_file(self):
         '''
         '''
-
-        data = np.load(file)
+        data = np.load(self.file)
 
         # pulling all data out of npz file
-        loaded_data = dict(map(lambda parameter: ( parameter, data[parameter] ), data.keys()))
+        loaded_data = dict(map(lambda component: ( component, data[component] ), data.keys()))
 
         SETNAME = 'stimuli'
         
         self.add_class(SETNAME, 1, "angle")
 
-        itteration = 0
-
-        for i in range(len(data['label'])):
+        for i in range(len(loaded_data['label'])):
 
             # pulling out all the info for one image
-            image_data = dict(map(lambda parameter: ( parameter, loaded_data[parameter][i] ), loaded_data.keys()))
+            image_data = dict( map(lambda component: ( component, loaded_data[component][i] ), loaded_data.keys()))
 
             self.add_image(SETNAME,
                 image_id   = i,
                 path       = None,
                 **image_data)
 
-            itteration += 1
-
         del data
+
+        self.prepare()
+
+        return self
 
 
 
@@ -453,7 +446,8 @@ class LoadedDataset(utils.Dataset):
 
 
     def show(self, howmany=1):
-
+        '''
+        '''
         image_ids = np.random.choice(self.image_ids, howmany)
         
         for image_id in image_ids:
@@ -467,7 +461,8 @@ class LoadedDataset(utils.Dataset):
 
 
     def show_bbox(self, image_id):
-
+        '''
+        '''
         image = self.load_image(image_id)
 
         mask, class_ids = self.load_mask(image_id)
