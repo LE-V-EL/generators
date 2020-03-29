@@ -10,13 +10,13 @@ import skimage.draw
 
 class Figure5:
 
-    SIZE = (256, 256)
+    SIZE = (100, 150)
     RANGE = (1, 90) #sizes of angles generated
     POS_RANGE = (20, 80) #position range
     AUTO_SPOT_SIZE = 3 #how big automatic spot is in pixels
     LENGTH_MAX = 34 #how long a line can be for length
     LENGTH_MIN = 5 #lines disappear when they're too short
-    ANGLE_LINE_LENGTH = 20 #how long the angle lines are
+    ANGLE_LINE_LENGTH = 12 #how long the angle lines are
     AREA_DOF = 12 #maximum circle radius
     VOLUME_SIDE_MAX = 14
     CURV_DOF = 34
@@ -64,13 +64,13 @@ class Figure5:
         sparse_ = [] #sparse of all stimuli
         label_ = [] #label of all stimuli
         parameters = 1 #number of permutations for all 4 combined
-        X = 18+(256-150)//2 # now we use 256x256 
+        X = 18
         XR = X
         if flags[1]:
             XR = X + np.random.randint((-1)*Figure5.WIGGLE, Figure5.WIGGLE)
             parameters *= (Figure5.WIGGLE*2+1)
         if flags[0]:
-            Y = 20+(256-100)//2
+            Y = 20
         elif stimulus is not Figure5.position_common_scale and stimulus is not Figure5.position_non_aligned_scale:
             Y = np.random.randint(Figure5.POS_RANGE[0], Figure5.POS_RANGE[1])
             parameters *= (Figure5.POS_RANGE[1] - Figure5.POS_RANGE[0] + 1)
