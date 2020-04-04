@@ -62,7 +62,7 @@ class DatasetGenerator:
 
                 sparse, premask, label, parameters = self.next_image()
 
-                image = premask.copy()
+                image = np.asarray(premask.copy(), dtype='float32')
                 image[image>0] = 1 # re-set to binary
 
                 # adding 5% noise
