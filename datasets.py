@@ -17,7 +17,7 @@ from statistics import mean
 class DatasetGenerator:
 
 
-    mode_list = [
+    data_class_list = [
         'position_non_aligned_scale',
         'position_common_scale',
         'angle',
@@ -33,8 +33,14 @@ class DatasetGenerator:
         'image',
         'mask',
         'bbox',
-        'sparse',
-        'parameters'
+        'sparse'
+    ]
+
+    dataset_metadata = [
+        'parameters',
+        'data_class',
+        'distance_threshold',
+        'count'
     ]
 
 #####################################################################################
@@ -49,9 +55,15 @@ class DatasetGenerator:
             '''
             # allow the inner class to access the outer class's data
             self.p_dataset = p_dataset
-            self.count = count
-            self.label_distribution = {}
 
+            # metadata to save later
+            self.data_class         = self.p_dataset.data_class
+            self.distance_threshold = self.p_dataset.distance_threshold
+            self.parameters = None
+            self.label_distribution = {}
+            self.count = count
+
+            # dataset components
             for component in DatasetGenerator.dataset_components:
                 setattr(self, component, [])
 
@@ -67,14 +79,13 @@ class DatasetGenerator:
                 image = np.asarray(premask.copy(), dtype='float32')
                 image[image>0] = 1 # re-set to binary
 
-                image =  np.asarray(image, dtype='float32')
+                image = np.asarray(image, dtype='float32')
 
                 # adding 5% noise
                 image += np.random.uniform(0, 0.05, image.shape)
 
                 mask = np.zeros((premask.shape[0], premask.shape[1], len(label)), dtype=np.uint8)
 
-                sparse = np.asarray(sparse, dtype="uint16")
 
                 for i in range(len(label)):
                     filtered_mask = premask.copy()
@@ -91,14 +102,15 @@ class DatasetGenerator:
 
                 self.bbox.append(bbox)
 
-                self.parameters.append(parameters)
+                if self.parameters is None:
+                    self.parameters = parameters
 
 
 
         def random_image(self):
             '''
             '''
-            image_function = getattr(self.p_dataset, self.p_dataset.mode)
+            image_function = getattr(self.p_dataset, self.data_class)
             
             return image_function(flags=self.p_dataset.flags)
 
@@ -176,22 +188,24 @@ class DatasetGenerator:
         distance_threshold = 3.0,
         naive              = False,
         batch              = True,
-        mode               = 'angle'):
+        data_class         = 'angle',
+        verbose            = True):
 
         self.counts             = counts
         self.flags              = flags
         self.distance_threshold = distance_threshold
         self.naive              = naive
         self.batch              = batch
-        self.mode               = mode
+        self.data_class         = data_class
+        self.verbose            = verbose
 
-        self.folder = "output/" + self.mode + "/"
+        self.folder = "output/" + self.data_class + "/"
 
         self.labels       = []
         self.euclid_table = {}
         self.itterations  = 0
 
-        for function in DatasetGenerator.mode_list:
+        for function in DatasetGenerator.data_class_list:
             setattr(self, function, getattr(Figure5, function))
 
 
@@ -201,7 +215,7 @@ class DatasetGenerator:
         '''
         startTime = datetime.now()
 
-        print("Generating dataset of class: ", self.mode)
+        print("Generating dataset of class: ", self.data_class)
 
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -248,6 +262,13 @@ class DatasetGenerator:
             lambda component : ( component, np.stack( getattr(dataset, component), axis=0 ) ),
             DatasetGenerator.dataset_components
         ))
+
+        metadata = dict( map(
+            lambda component : ( component, str(getattr(dataset, component)) ),
+            DatasetGenerator.dataset_metadata
+        ))
+
+        save_data['metadata'] = np.asarray(list(metadata.items()), dtype="str")
 
         file = self.folder + name + "_" + str(dataset_number) + ".npz"
 
@@ -323,8 +344,8 @@ class DatasetGenerator:
         '''
         self.labels.append(label)
 
-        if not len(self.labels) % 1000:
-            print("labels: ", len(self.labels))
+        if self.verbose and not len(self.labels) % 1000:
+            print("labels added: ", len(self.labels))
         
         if not self.naive:
             self.add_labels_within_threshold(label)
@@ -340,7 +361,7 @@ class DatasetGenerator:
         # exception for length because there is too little space to do 
         # the full euclidian distance caluclation and allow for a dataset
         # of any size
-        if self.mode == "length":
+        if self.data_class == "length":
             self.add_euclid_label(label)
         else:
             self.__add_labels_within_threshold(label, label, 0, 0)
@@ -379,7 +400,7 @@ class DatasetGenerator:
 
     def add_itteration(self):
         self.itterations += 1
-        if not self.itterations % 1000:
+        if self.verbose and not self.itterations % 1000:
             print("itteration: ", self.itterations)
 
 
@@ -395,6 +416,7 @@ class DatasetFromFile(utils.Dataset):
         super().__init__()
 
         self.file = file
+        self.metadata = None
 
 
 
@@ -405,6 +427,8 @@ class DatasetFromFile(utils.Dataset):
 
         # pulling all data out of npz file
         loaded_data = dict(map(lambda component: ( component, data[component] ), data.keys()))
+
+        self.metadata = loaded_data.pop('metadata')
 
         SETNAME = 'stimuli'
         
