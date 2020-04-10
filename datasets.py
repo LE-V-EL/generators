@@ -62,13 +62,19 @@ class DatasetGenerator:
 
                 sparse, premask, label, parameters = self.next_image()
 
+                sparse = np.asarray(sparse, dtype='uint16')
+
                 image = np.asarray(premask.copy(), dtype='float32')
                 image[image>0] = 1 # re-set to binary
+
+                image =  np.asarray(image, dtype='float32')
 
                 # adding 5% noise
                 image += np.random.uniform(0, 0.05, image.shape)
 
                 mask = np.zeros((premask.shape[0], premask.shape[1], len(label)), dtype=np.uint8)
+
+                sparse = np.asarray(sparse, dtype="uint16")
 
                 for i in range(len(label)):
                     filtered_mask = premask.copy()
@@ -81,7 +87,7 @@ class DatasetGenerator:
                 self.mask.append(mask)
                 self.sparse.append(sparse)
 
-                bbox = utils.extract_bboxes(mask)
+                bbox = np.asarray(utils.extract_bboxes(mask), dtype='uint16')
 
                 self.bbox.append(bbox)
 
