@@ -143,7 +143,15 @@ class DatasetGenerator:
         def validate_label(self, label):
             '''
             '''
-            return self.p_dataset.check_label_euclid(label) and self.check_distribution(label)
+            if not self.p_dataset.check_label_euclid(label):
+                self.p_dataset.euclid_failure()
+                return False
+
+            if not self.check_distribution(label):
+                self.p_dataset.distribution_failure()
+                return False
+
+            return True
 
 
 
@@ -201,9 +209,11 @@ class DatasetGenerator:
 
         self.folder = "output/" + self.data_class + "/"
 
-        self.labels       = []
-        self.euclid_table = {}
-        self.itterations  = 0
+        self.labels              = []
+        self.euclid_table        = {}
+        self.itterations         = 0
+        self.failed_euclid       = 0
+        self.failed_distribution = 0
 
         for function in DatasetGenerator.data_class_list:
             setattr(self, function, getattr(Figure5, function))
@@ -345,7 +355,7 @@ class DatasetGenerator:
         self.labels.append(label)
 
         if self.verbose and not len(self.labels) % 1000:
-            print("labels added: ", len(self.labels))
+            print("Labels Accepted: ", len(self.labels))
         
         if not self.naive:
             self.add_labels_within_threshold(label)
@@ -401,7 +411,17 @@ class DatasetGenerator:
     def add_itteration(self):
         self.itterations += 1
         if self.verbose and not self.itterations % 1000:
-            print("itteration: ", self.itterations)
+            print("Generation Loop Itteration: ", self.itterations)
+
+    def euclid_failure(self): 
+        self.failed_euclid += 1
+        if self.verbose and not self.failed_euclid % 1000:
+            print("Labels Rejected by Euclidian Distance: ", self.failed_euclid)
+
+    def distribution_failure(self): 
+        self.failed_distribution += 1
+        if self.verbose and not self.failed_distribution % 1000:
+            print("Labels Rejected by Uneven Label Distribution: ", self.failed_distribution)
 
 
 
