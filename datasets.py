@@ -97,13 +97,13 @@ class DatasetGenerator:
                     or self.p_dataset.data_class == 'position_common_scale'):
                     extra = 1
 
-                mask = np.zeros((premask.shape[0], premask.shape[1], len(label) + extra), dtype=np.uint8)
+                mask = np.full((premask.shape[0], premask.shape[1], len(label) + extra), False, dtype='bool')
 
 
                 for i in range(len(label) + extra):
                     filtered_mask = premask.copy()
-                    filtered_mask[filtered_mask!=(i+1)] = 0
-                    filtered_mask[filtered_mask==(i+1)] = 1
+                    filtered_mask[filtered_mask!=(i+1)] = False
+                    filtered_mask[filtered_mask==(i+1)] = True
                     mask[:,:, i] = filtered_mask
 
                 self.label.append(label)
