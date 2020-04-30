@@ -12,7 +12,7 @@ from angle import Figure5
 from operator import add, sub
 from datetime import datetime
 from statistics import mean
-
+from math import ceil
 
 class DatasetGenerator:
 
@@ -67,6 +67,12 @@ class DatasetGenerator:
             for component in DatasetGenerator.dataset_components:
                 setattr(self, component, [])
 
+            if self.p_dataset.data_class == 'area' or self.p_dataset.data_class == 'curvature':
+                self.label_type = 'float32'
+            else:
+                self.label_type = 'uint16'
+
+
         def generate(self):
             '''
             '''
@@ -119,30 +125,33 @@ class DatasetGenerator:
         def next_image(self):
             '''
             '''
-            sparse, premask, label, parameters = self.random_image()
+            is_valid_label = False
 
-            # so we can use the nice numpy operations
-            label = np.asarray(label, dtype='uint8')
+            sparse, premask, label, parameters, validation_label = None, None, None, None, None
             
-            self.p_dataset.add_itteration()
-            
-            while not self.validate_label(label):
-                
-                sparse, premask, label, parameters = self.random_image()
-                
-                label = np.asarray(label, dtype='uint8')
-                
+            while not is_valid_label:
+
+                sparse, premask, prelabel, parameters = self.random_image()
+
+                # so we can use the nice numpy operations
+                label = np.asarray(prelabel, dtype=self.label_type)
+
+                validation_label = self.p_dataset.modify_label_for_validation(label)
+
                 self.p_dataset.add_itteration()
 
-            self.add_label(label)
+                is_valid_label = self.validate_label(validation_label)
+
+
+            self.add_label(validation_label)
 
             return sparse, premask, label, parameters
-
 
 
         def validate_label(self, label):
             '''
             '''
+            
             if not self.p_dataset.check_label_euclid(label):
                 self.p_dataset.euclid_failure()
                 return False
@@ -166,10 +175,13 @@ class DatasetGenerator:
             # not adding anything over 110% of the mean amount in each angle bucket
             threshold = mean(self.label_distribution.values()) * 1.1
             
-            for element in label:
+            if threshold > 10:
+                for element in label:
 
-                if self.label_distribution.get(str(element), 0) > threshold:
-                    return False
+                    key = str(element)
+
+                    if self.label_distribution.get(key, 0) > threshold:
+                        return False
             
             return True
 
@@ -181,9 +193,12 @@ class DatasetGenerator:
 
             for element in label:
 
-                self.label_distribution[str(element)] = 1 + self.label_distribution.get(str(element), 0)
+                key = str(element)
+
+                self.label_distribution[key] = 1 + self.label_distribution.get(key, 0)
 
             self.p_dataset.add_label(label)
+
 
 
 #####################################################################################
@@ -287,6 +302,22 @@ class DatasetGenerator:
         del dataset
 
 
+    def modify_label_for_validation(self, label):
+        '''
+        '''
+        return np.asarray([self.modify_element_for_validation(element) for element in label])
+
+
+    def modify_element_for_validation(self, element):
+        # curvature is small floats so we need to make them larger and round
+        if self.data_class == 'curvature':
+            return int(ceil(element * 1000))
+        # area is large floats so we can just round
+        elif self.data_class == 'area':
+            return int(ceil(element))
+        else:
+            return element
+
 
 
     def check_label_euclid(self, label):
@@ -371,7 +402,7 @@ class DatasetGenerator:
         # exception for length because there is too little space to do 
         # the full euclidian distance caluclation and allow for a dataset
         # of any size
-        if self.data_class == "length":
+        if self.data_class == "length" or self.data_class == "curvature":
             self.add_euclid_label(label)
         else:
             self.__add_labels_within_threshold(label, label, 0, 0)
@@ -448,11 +479,11 @@ class DatasetFromFile(utils.Dataset):
         # pulling all data out of npz file
         loaded_data = dict(map(lambda component: ( component, data[component] ), data.keys()))
 
-        self.metadata = loaded_data.pop('metadata')
+        self.metadata = dict(loaded_data.pop('metadata'))
 
         SETNAME = 'stimuli'
         
-        self.add_class(SETNAME, 1, "angle")
+        self.add_class(SETNAME, 1, self.metadata['data_class'])
 
         for i in range(len(loaded_data['label'])):
 

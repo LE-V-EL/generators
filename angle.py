@@ -102,7 +102,7 @@ class Figure5:
         elif stimulus is Figure5.position_common_scale:
             temp = stimulus(X=XR, preset=sizes[0], recur=True)
         else:
-            temp = stimulus(X=XR, Y=Y, preset=sizes[0], recur=True, label=1)
+            temp = stimulus(X=XR, Y=Y, preset=sizes[0], recur=True)
         img = temp[1]
         sparse_.append(temp[0])
         label_.append(temp[2])
@@ -120,11 +120,11 @@ class Figure5:
                 Y = np.random.randint(Figure5.POS_RANGE[0], Figure5.POS_RANGE[1])
                 parameters *= (Figure5.POS_RANGE[1] - Figure5.POS_RANGE[0] + 1)
             if stimulus is Figure5.position_non_aligned_scale:
-                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, diff=diff)
+                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, diff=diff, label_val=i+1)
             elif stimulus is Figure5.position_common_scale:
-                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True)
+                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, label_val=i+1)
             else:
-                temp = stimulus(X=XR, Y=Y, preset=sizes[i], preset_img=img, recur=True, label=i+1)
+                temp = stimulus(X=XR, Y=Y, preset=sizes[i], preset_img=img, recur=True, label_val=i+1)
             sparse_.append(temp[0])
             label_.append(temp[2])
             if len(temp) > 3:
@@ -143,7 +143,7 @@ class Figure5:
     #Use of variable "recur" allows me to use methods as their own helper methods
 
     @staticmethod
-    def position_non_aligned_scale(flags=[False, False, False], X=0, preset=None, preset_img=None, recur=False, diff=None, varspot=False):
+    def position_non_aligned_scale(flags=[False, False, False], X=0, preset=None, preset_img=None, recur=False, diff=None, varspot=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.position_non_aligned_scale, flags)
         if preset_img is not None:
@@ -152,10 +152,10 @@ class Figure5:
             img = np.zeros(Figure5.SIZE)
             ORIGIN = 7 #where the line is
             if diff is not None:
-                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
+                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = label_val
             else:
                 diff = np.random.randint(-9, 11)
-                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
+                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = label_val
         parameters = 1
         if varspot:
             sizes = [1, 3, 5, 7, 9, 11]
@@ -171,20 +171,20 @@ class Figure5:
         label = Y - Figure5.POS_RANGE[0] - diff
         
         half_size = spot_size / 2
-        img[int(Y-half_size):int(Y+half_size+1), int(X-half_size):int(X+half_size+1)] = 1
+        img[int(Y-half_size):int(Y+half_size+1), int(X-half_size):int(X+half_size+1)] = label_val
 
         sparse = [Y, X, spot_size]
 
         return sparse, img, label, parameters
 
     @staticmethod
-    def position_common_scale(flags=[False, False, False], X=0, preset=None, preset_img=None, recur=False, varspot=False):
+    def position_common_scale(flags=[False, False, False], X=0, preset=None, preset_img=None, recur=False, varspot=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.position_common_scale, flags)
-        return Figure5.position_non_aligned_scale(X=X, preset=preset, preset_img=preset_img, varspot=varspot, recur=recur, diff=0)
+        return Figure5.position_non_aligned_scale(X=X, preset=preset, preset_img=preset_img, varspot=varspot, recur=recur, diff=0, label_val=label_val)
     
     @staticmethod
-    def angle(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label=1) :
+    def angle(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label_val=1) :
         if not recur:
             return Figure5.flags(Figure5.angle, flags)
         if preset_img is not None:
@@ -203,13 +203,13 @@ class Figure5:
         r, c = skimage.draw.line(Y, X, Y+(int)(L*np.sin(t2)), X+(int)(L*np.cos(t2)))
         diffangle = t2+diff2 #angle after diff is added (2nd leg)
         r2, c2 = skimage.draw.line(Y, X, Y+(int)(L*np.sin(diffangle)), X+(int)(L*np.cos(diffangle)))
-        img[r, c] = label
-        img[r2, c2] = label
+        img[r, c] = label_val
+        img[r2, c2] = label_val
         sparse = [Y, X, ANGLE, startangle]
         return sparse, img, ANGLE, parameters
 
     @staticmethod
-    def length(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label=1):
+    def length(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.length, flags)
         if preset_img is not None:
@@ -221,12 +221,12 @@ class Figure5:
         else:
             L = preset
         half_l = int(L * 0.5)
-        img[Y-half_l:Y+half_l, X] = 1
+        img[Y-half_l:Y+half_l, X] = label_val
         sparse = [Y, X, L]
         return sparse, img, L
 
     @staticmethod
-    def direction(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label=1):
+    def direction(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.direction, flags)
         if preset_img is not None:
@@ -240,13 +240,13 @@ class Figure5:
             angle = preset
         radangle = angle * np.pi / 180
         r, c = skimage.draw.line(Y, X, Y+int(L*np.sin(radangle)), X+int(L*np.cos(radangle)))
-        img[r,c] = 1
-        img[Y-1:Y+1, X-1:X+1] = 1
+        img[r,c] = label_val
+        img[Y-1:Y+1, X-1:X+1] = label_val
         sparse = [Y, X, angle]
         return sparse, img, angle
 
     @staticmethod
-    def area(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label=1):
+    def area(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.area, flags)
         if preset_img is not None:
@@ -258,13 +258,13 @@ class Figure5:
         else:
             radius = preset
         r, c = skimage.draw.ellipse_perimeter(Y, X, radius, radius)
-        img[r, c] = 1
+        img[r, c] = label_val
         sparse = [Y, X, radius]
         label = np.pi * radius * radius
         return sparse, img, label
 
     @staticmethod
-    def volume(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label=1):
+    def volume(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.volume, flags)
         if preset_img is not None:
@@ -288,32 +288,32 @@ class Figure5:
         fbr = (fbl[0], fbl[1]+depth)
     
         r, c = skimage.draw.line(fbl[0], fbl[1], fbr[0], fbr[1])
-        img[r, c] = 1
+        img[r, c] = label_val
 
         ftl = (fbl[0]-depth, fbl[1])
         ftr = (fbr[0]-depth, fbr[1])
         
         r, c = skimage.draw.line(ftl[0], ftl[1], ftr[0], ftr[1])
-        img[r,c] = 1
+        img[r,c] = label_val
         r, c = skimage.draw.line(ftl[0], ftl[1], fbl[0], fbl[1])
-        img[r, c] = 1
+        img[r, c] = label_val
         r, c = skimage.draw.line(ftr[0], ftr[1], fbr[0], fbr[1])
-        img[r, c] = 1
+        img[r, c] = label_val
 
         bbr = obliqueProjection([fbr[0], fbr[1], depth])
         btr = (bbr[0]-depth, bbr[1])
         btl = (btr[0], btr[1]-depth)
 
         r, c = skimage.draw.line(fbr[0], fbr[1], bbr[0], bbr[1])
-        img[r, c] = 1
+        img[r, c] = label_val
         r, c = skimage.draw.line(bbr[0], bbr[1], btr[0], btr[1])
-        img[r, c] = 1
+        img[r, c] = label_val
         r, c = skimage.draw.line(btr[0], btr[1], btl[0], btl[1])
-        img[r, c] = 1
+        img[r, c] = label_val
         r, c = skimage.draw.line(btl[0], btl[1], ftl[0], ftl[1])
-        img[r, c] = 1
+        img[r, c] = label_val
         r, c = skimage.draw.line(btr[0], btr[1], ftr[0], ftr[1])
-        img[r, c] = 1
+        img[r, c] = label_val
 
         sparse = [Y, X, depth]
         label = depth ** 3
@@ -321,7 +321,7 @@ class Figure5:
         
 
     @staticmethod
-    def curvature(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, varwidth=False, label=1):
+    def curvature(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, varwidth=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.curvature, flags)
         if preset_img is not None:
@@ -342,7 +342,7 @@ class Figure5:
         mid = (Y-depth, X)
         end = (Y, X+halfwidth)
         r, c = skimage.draw.bezier_curve(start[0], start[1], mid[0], mid[1], end[0], end[1], 1)
-        img[r, c] = 1
+        img[r, c] = label_val
         sparse = [Y, X, depth, width]
         t = 0.5
         P10 = (mid[0] - start[0], mid[1] - start[1])
