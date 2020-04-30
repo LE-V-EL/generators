@@ -40,7 +40,9 @@ class DatasetGenerator:
         'parameters',
         'data_class',
         'distance_threshold',
-        'count'
+        'count',
+        'source',
+        'image_size'
     ]
 
 #####################################################################################
@@ -59,9 +61,11 @@ class DatasetGenerator:
             # metadata to save later
             self.data_class         = self.p_dataset.data_class
             self.distance_threshold = self.p_dataset.distance_threshold
-            self.parameters = None
+            self.parameters         = None
             self.label_distribution = {}
-            self.count = count
+            self.count              = count
+            self.source             = 'LE-V-EL.org'
+            self.image_size         = Figure5.SIZE
 
             # dataset components
             for component in DatasetGenerator.dataset_components:
@@ -181,14 +185,13 @@ class DatasetGenerator:
             
             # not adding anything over 110% of the mean amount in each angle bucket
             threshold = mean(self.label_distribution.values()) * 1.1
-            
-            if threshold > 10:
-                for element in label:
 
-                    key = str(element)
+            for element in label:
 
-                    if self.label_distribution.get(key, 0) > threshold:
-                        return False
+                key = str(element)
+
+                if self.label_distribution.get(key, 0) > threshold:
+                    return False
             
             return True
 
