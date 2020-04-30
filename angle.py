@@ -98,9 +98,9 @@ class Figure5:
         if stimulus is Figure5.position_non_aligned_scale:
             diff = np.random.randint(-9, 11)
             parameters *= 21
-            temp = stimulus(X=XR, preset=sizes[0], recur=True, diff=diff)
+            temp = stimulus(X=XR, preset=sizes[0], recur=True, diff=diff, label_val=2)
         elif stimulus is Figure5.position_common_scale:
-            temp = stimulus(X=XR, preset=sizes[0], recur=True)
+            temp = stimulus(X=XR, preset=sizes[0], recur=True, label_val=2)
         else:
             temp = stimulus(X=XR, Y=Y, preset=sizes[0], recur=True)
         img = temp[1]
@@ -120,9 +120,9 @@ class Figure5:
                 Y = np.random.randint(Figure5.POS_RANGE[0], Figure5.POS_RANGE[1])
                 parameters *= (Figure5.POS_RANGE[1] - Figure5.POS_RANGE[0] + 1)
             if stimulus is Figure5.position_non_aligned_scale:
-                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, diff=diff, label_val=i+1)
+                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, diff=diff, label_val=i+2)
             elif stimulus is Figure5.position_common_scale:
-                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, label_val=i+1)
+                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, label_val=i+2)
             else:
                 temp = stimulus(X=XR, Y=Y, preset=sizes[i], preset_img=img, recur=True, label_val=i+1)
             sparse_.append(temp[0])
@@ -152,10 +152,10 @@ class Figure5:
             img = np.zeros(Figure5.SIZE)
             ORIGIN = 7 #where the line is
             if diff is not None:
-                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = label_val
+                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
             else:
                 diff = np.random.randint(-9, 11)
-                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = label_val
+                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
         parameters = 1
         if varspot:
             sizes = [1, 3, 5, 7, 9, 11]

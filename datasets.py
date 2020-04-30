@@ -90,10 +90,17 @@ class DatasetGenerator:
                 # adding 5% noise
                 image += np.random.uniform(0, 0.05, image.shape)
 
-                mask = np.zeros((premask.shape[0], premask.shape[1], len(label)), dtype=np.uint8)
+
+                # there is the scale object to account for in position_non_aligned_scale and position_common_scale
+                extra = 0
+                if (self.p_dataset.data_class == 'position_non_aligned_scale' 
+                    or self.p_dataset.data_class == 'position_common_scale'):
+                    extra = 1
+
+                mask = np.zeros((premask.shape[0], premask.shape[1], len(label) + extra), dtype=np.uint8)
 
 
-                for i in range(len(label)):
+                for i in range(len(label) + extra):
                     filtered_mask = premask.copy()
                     filtered_mask[filtered_mask!=(i+1)] = 0
                     filtered_mask[filtered_mask==(i+1)] = 1
