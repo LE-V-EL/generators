@@ -7,7 +7,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'external/mask_rcnn/'))
 from mrcnn import utils
 from mrcnn import visualize
 
-from angle import Figure5
+from figure5 import Figure5
 
 from operator import add, sub
 from datetime import datetime
