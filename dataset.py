@@ -1,6 +1,7 @@
 import os, sys
 
 import numpy as np
+import pickle
 
 # we need access to the MaskR-CNN code
 sys.path.append(os.path.join(os.path.dirname(__file__), 'external/mask_rcnn/'))
@@ -308,6 +309,9 @@ class DatasetGenerator:
         file = self.folder + name + "_" + str(dataset_number) + ".npz"
 
         np.savez(file, **save_data)
+
+        pickle.dump({self.data_class : dataset.label_distribution}, 
+            open(self.folder + name + "_label_distribution_" + str(dataset_number) + ".p", "wb"))
 
         del dataset
 
