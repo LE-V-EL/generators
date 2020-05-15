@@ -46,6 +46,8 @@ class DatasetGenerator:
         'image_size'
     ]
 
+    max_distance_threshold = 2
+
 #####################################################################################
 # SubDataset
 #####################################################################################
@@ -125,15 +127,6 @@ class DatasetGenerator:
 
 
 
-        def random_image(self):
-            '''
-            '''
-            image_function = getattr(self.p_dataset, self.data_class)
-            
-            return image_function(flags=self.p_dataset.flags)
-
-
-
         def next_image(self):
             '''
             '''
@@ -143,7 +136,7 @@ class DatasetGenerator:
             
             while not is_valid_label:
 
-                sparse, premask, prelabel, parameters = self.random_image()
+                sparse, premask, prelabel, parameters = self.p_dataset.random_image()
 
                 # so we can use the nice numpy operations
                 label = np.asarray(prelabel, dtype=self.label_type)
@@ -219,7 +212,6 @@ class DatasetGenerator:
     def __init__(self,
         counts             = {"train": 500, "val": 50, "test": 50},
         flags              = [True,False,False],
-        distance_threshold = 3.0,
         naive              = False,
         batch              = True,
         data_class         = 'angle',
@@ -227,7 +219,6 @@ class DatasetGenerator:
 
         self.counts             = counts
         self.flags              = flags
-        self.distance_threshold = distance_threshold
         self.naive              = naive
         self.batch              = batch
         self.data_class         = data_class
@@ -244,6 +235,44 @@ class DatasetGenerator:
         for function in DatasetGenerator.data_class_list:
             setattr(self, function, getattr(Figure5, function))
 
+        self.distance_threshold = self.__calculate_distance_threshold()
+
+
+    def __calculate_distance_threshold(self):
+
+        _, _, label, parameters =  self.random_image()
+
+        threshold = 0
+
+        labels_in_threshold = 1
+
+        total_count = sum(self.counts.values())
+
+        next_threshold = threshold
+
+        if parameters < total_count:
+            print(self.data_class, "has parameters", parameters, "which is too small for dataset of size", total_count)
+
+        while threshold < DatasetGenerator.max_distance_threshold and (parameters / labels_in_threshold > total_count):
+
+            threshold = next_threshold
+            next_threshold += 1
+
+            labels_in_threshold = len(DatasetGenerator.get_labels_within_threshold(
+                np.asarray([next_threshold * 2] * len(label)),
+                next_threshold))
+
+        return threshold
+
+
+
+
+    def random_image(self):
+        '''
+        '''
+        image_function = getattr(self, self.data_class)
+        
+        return image_function(flags=self.flags)
 
 
     def generate(self):
@@ -412,18 +441,22 @@ class DatasetGenerator:
         Adds all possibly labels within the euclidian distance threshold
         to the memoized euclidian distance lookup table.
         '''
+        labels = DatasetGenerator.get_labels_within_threshold(label, self.distance_threshold)
 
-        # exception for length because there is too little space to do 
-        # the full euclidian distance caluclation and allow for a dataset
-        # of any size
-        if self.data_class == "length" or self.data_class == "curvature":
+        for label in labels:
             self.add_euclid_label(label)
-        else:
-            self.__add_labels_within_threshold(label, label, 0, 0)
+
+
+    @staticmethod
+    def get_labels_within_threshold(label, distance_threshold):
+        return DatasetGenerator.__get_labels_within_threshold(label, label, 0, 0, distance_threshold)
 
 
 
-    def __add_labels_within_threshold(self, base_label, current_label, index, old_dist):
+    @staticmethod
+    def __get_labels_within_threshold(base_label, current_label, index, old_dist, distance_threshold):
+
+        labels_in_threshold = []
 
         for op in [add, sub]:
 
@@ -431,17 +464,27 @@ class DatasetGenerator:
 
             next_label = current_label.copy();
 
-            while dist < self.distance_threshold:
+            while dist <= distance_threshold:
 
-
-                self.add_euclid_label(next_label)
+                labels_in_threshold.append(next_label)
 
                 if index + 1 < len(base_label):
-                    self.__add_labels_within_threshold(base_label, next_label.copy(), index + 1, dist)
+
+                    labels_found = DatasetGenerator.__get_labels_within_threshold(
+                        base_label,
+                        next_label.copy(),
+                        index + 1, dist,
+                        distance_threshold
+                    )
+
+                    for label in labels_found:
+                        labels_in_threshold.append(label)
 
                 next_label[index] = op(next_label[index], 1)
 
                 dist = np.linalg.norm(base_label - next_label)
+
+        return labels_in_threshold
 
 
 
