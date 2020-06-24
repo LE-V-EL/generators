@@ -11,7 +11,7 @@ import skimage.draw
 class Figure5:
 
     SIZE = (100, 150)
-    RANGE = (1, 90) #sizes of angles generated
+    RANGE = (10, 90) #sizes of angles generated
     POS_RANGE = (20, 80) #position range
     AUTO_SPOT_SIZE = 3 #how big automatic spot is in pixels
     LENGTH_MAX = 34 #how long a line can be for length
@@ -120,6 +120,7 @@ class Figure5:
                 Y = np.random.randint(Figure5.POS_RANGE[0], Figure5.POS_RANGE[1])
                 parameters *= (Figure5.POS_RANGE[1] - Figure5.POS_RANGE[0] + 1)
             if stimulus is Figure5.position_non_aligned_scale:
+                diff = np.random.randint(-9, 11)
                 temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, diff=diff, label_val=i+2)
             elif stimulus is Figure5.position_common_scale:
                 temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, label_val=i+2)
@@ -150,12 +151,13 @@ class Figure5:
             img = preset_img
         else:
             img = np.zeros(Figure5.SIZE)
-            ORIGIN = 7 #where the line is
-            if diff is not None:
-                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
-            else:
-                diff = np.random.randint(-9, 11)
-                img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
+
+        ORIGIN = X - 7 #where the line is
+        if diff is not None:
+            img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
+        else:
+            diff = np.random.randint(-9, 11)
+            img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
         parameters = 1
         if varspot:
             sizes = [1, 3, 5, 7, 9, 11]
@@ -181,7 +183,31 @@ class Figure5:
     def position_common_scale(flags=[False, False, False], X=0, preset=None, preset_img=None, recur=False, varspot=False, label_val=1):
         if not recur:
             return Figure5.flags(Figure5.position_common_scale, flags)
-        return Figure5.position_non_aligned_scale(X=X, preset=preset, preset_img=preset_img, varspot=varspot, recur=recur, diff=0, label_val=label_val)
+        if preset_img is not None:
+            img = preset_img
+        else:
+            img = np.zeros(Figure5.SIZE)
+            ORIGIN = 7 #where the line is
+            img[Figure5.POS_RANGE[0]:Figure5.POS_RANGE[1], ORIGIN] = 1
+        parameters = 1
+        if varspot:
+            sizes = [1, 3, 5, 7, 9, 11]
+            spot_size = np.random.choice(sizes)
+            parameters *= len(sizes)
+        else:
+            spot_size = Figure5.AUTO_SPOT_SIZE
+        if preset is None:
+            Y = np.random.randint(Figure5.POS_RANGE[0], Figure5.POS_RANGE[1])
+        else:
+            Y = preset
+        label = Y - Figure5.POS_RANGE[0]
+        
+        half_size = spot_size / 2
+        img[int(Y-half_size):int(Y+half_size+1), int(X-half_size):int(X+half_size+1)] = label_val
+
+        sparse = [Y, X, spot_size]
+
+        return sparse, img, label, parameters
     
     @staticmethod
     def angle(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label_val=1) :

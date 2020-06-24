@@ -90,10 +90,8 @@ class DatasetGenerator:
                 sparse = np.asarray(sparse, dtype='uint16')
 
                 image = np.asarray(premask.copy(), dtype='float32')
-                image[image>0] = 1 # re-set to binary
 
-                image = np.asarray(image, dtype='float32')
-
+                image[image>0] = 0.95 # setting to 0.95 to account for added noise and keep final values between 0 and 1
                 # adding 5% noise
                 image += np.random.uniform(0, 0.05, image.shape)
 
@@ -213,7 +211,7 @@ class DatasetGenerator:
         counts             = {"train": 500, "val": 50, "test": 50},
         flags              = [True,False,False],
         naive              = False,
-        batch              = True,
+        batch              = False,
         data_class         = 'angle',
         verbose            = True):
 
@@ -466,7 +464,7 @@ class DatasetGenerator:
 
             while dist <= distance_threshold:
 
-                labels_in_threshold.append(next_label)
+                labels_in_threshold.append(next_label.copy())
 
                 if index + 1 < len(base_label):
 
