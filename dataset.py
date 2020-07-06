@@ -91,21 +91,13 @@ class DatasetGenerator:
 
                 image = np.asarray(premask.copy(), dtype='float32')
 
-                image[image>0] = 0.95 # setting to 0.95 to account for added noise and keep final values between 0 and 1
+                image[image>0] = 1 #setting to binary
                 # adding 5% noise
                 image += np.random.uniform(0, 0.05, image.shape)
 
+                mask = np.full((premask.shape[0], premask.shape[1], len(label)), False, dtype='bool')
 
-                # there is the scale object to account for in position_non_aligned_scale and position_common_scale
-                extra = 0
-                if (self.p_dataset.data_class == 'position_non_aligned_scale' 
-                    or self.p_dataset.data_class == 'position_common_scale'):
-                    extra = 1
-
-                mask = np.full((premask.shape[0], premask.shape[1], len(label) + extra), False, dtype='bool')
-
-
-                for i in range(len(label) + extra):
+                for i in range(len(label)):
                     filtered_mask = premask.copy()
                     filtered_mask[filtered_mask!=(i+1)] = False
                     filtered_mask[filtered_mask==(i+1)] = True

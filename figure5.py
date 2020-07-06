@@ -11,8 +11,9 @@ import skimage.draw
 class Figure5:
 
     SIZE = (100, 150)
-    RANGE = (10, 90) #sizes of angles generated
+    RANGE = (15, 90) #sizes of angles generated
     POS_RANGE = (20, 80) #position range
+    POS_SCALE_MARKS = (20, 40, 60, 80)
     AUTO_SPOT_SIZE = 3 #how big automatic spot is in pixels
     LENGTH_MAX = 34 #how long a line can be for length
     LENGTH_MIN = 5 #lines disappear when they're too short
@@ -22,12 +23,13 @@ class Figure5:
     CURV_DOF = 34
     CURV_WIDTH = 22 #auto curvature width
     WIGGLE = 5 #How many pixels of x "wiggling" it can do
+    BACKGROUND_OBJECT = 5
 
     @staticmethod
     def calc_ranges(stimulus): #Calculates what the range of values is that "flags" supplies as a preset to other methods.
         R = 0 #Highest number that can be generated (range: 1-R)
         if stimulus is Figure5.angle:
-            R = Figure5.RANGE[1]
+            R = Figure5.RANGE[1] - Figure5.RANGE[0] + 1
         elif stimulus is Figure5.length:
             R = Figure5.LENGTH_MAX - Figure5.LENGTH_MIN + 1
         elif stimulus is Figure5.direction:
@@ -77,13 +79,31 @@ class Figure5:
 
         R = Figure5.calc_ranges(stimulus)
         parameters *= (R**4)
-        sizes = [0] * 4
-        for i in range(len(sizes)):
-            sizes[i] = np.random.randint(1, R)
-            if stimulus is Figure5.position_non_aligned_scale or stimulus is Figure5.position_common_scale:
-                sizes[i] = sizes[i] + Figure5.POS_RANGE[0] - 1 #Fixes 1-61 to become 20-80
-            elif stimulus is Figure5.length:
-                sizes[i] += Figure5.LENGTH_MIN - 1
+        exclude_overlapping = []
+        sizes = []
+        if stimulus is Figure5.position_common_scale:
+            while len(sizes) < 4:
+                val =  np.random.randint(1, R)
+                val += Figure5.POS_RANGE[0] - 1
+                # since postion comon scale is on the same scale,
+                # we need to make sure none are overlapping 
+                if val not in exclude_overlapping:
+                    sizes.append(val)
+                    for exclude in range(val-3, val+4):
+                        exclude_overlapping.append(exclude)
+        else:
+            sizes = [0] * 4
+            for i in range(len(sizes)):
+                sizes[i] = np.random.randint(1, R)
+                if stimulus is Figure5.position_non_aligned_scale:
+                    sizes[i] = sizes[i] + Figure5.POS_RANGE[0] - 1 #Fixes 1-61 to become 20-80
+                elif stimulus is Figure5.angle:
+                    sizes[i] = sizes[i] + Figure5.RANGE[0] - 1 # fizes 0--80 to become 10 - 90
+                elif stimulus is Figure5.length:
+                    sizes[i] += Figure5.LENGTH_MIN - 1
+        # since they are on a common scale, they will be 
+        if stimulus is Figure5.position_common_scale:
+            sizes.sort()
         if flags[2]:
             L = sizes[0]
             SL = 0
@@ -98,9 +118,9 @@ class Figure5:
         if stimulus is Figure5.position_non_aligned_scale:
             diff = np.random.randint(-9, 11)
             parameters *= 21
-            temp = stimulus(X=XR, preset=sizes[0], recur=True, diff=diff, label_val=2)
+            temp = stimulus(X=XR, preset=sizes[0], recur=True, diff=diff, label_val=1)
         elif stimulus is Figure5.position_common_scale:
-            temp = stimulus(X=XR, preset=sizes[0], recur=True, label_val=2)
+            temp = stimulus(preset=sizes[0], recur=True, label_val=1)
         else:
             temp = stimulus(X=XR, Y=Y, preset=sizes[0], recur=True)
         img = temp[1]
@@ -121,9 +141,9 @@ class Figure5:
                 parameters *= (Figure5.POS_RANGE[1] - Figure5.POS_RANGE[0] + 1)
             if stimulus is Figure5.position_non_aligned_scale:
                 diff = np.random.randint(-9, 11)
-                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, diff=diff, label_val=i+2)
+                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, diff=diff, label_val=i+1)
             elif stimulus is Figure5.position_common_scale:
-                temp = stimulus(X=XR, preset=sizes[i], preset_img=img, recur=True, label_val=i+2)
+                temp = stimulus(preset=sizes[i], preset_img=img, recur=True, label_val=i+1)
             else:
                 temp = stimulus(X=XR, Y=Y, preset=sizes[i], preset_img=img, recur=True, label_val=i+1)
             sparse_.append(temp[0])
@@ -154,10 +174,10 @@ class Figure5:
 
         ORIGIN = X - 7 #where the line is
         if diff is not None:
-            img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
+            img = Figure5.add_scale(img, ORIGIN, diff=diff)
         else:
             diff = np.random.randint(-9, 11)
-            img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+diff, ORIGIN] = 1
+            img = Figure5.add_scale(img, ORIGIN, diff=diff)
         parameters = 1
         if varspot:
             sizes = [1, 3, 5, 7, 9, 11]
@@ -180,15 +200,16 @@ class Figure5:
         return sparse, img, label, parameters
 
     @staticmethod
-    def position_common_scale(flags=[False, False, False], X=0, preset=None, preset_img=None, recur=False, varspot=False, label_val=1):
+    def position_common_scale(flags=[False, False, False], preset=None, preset_img=None, recur=False, varspot=False, label_val=1):
+        X = int(Figure5.SIZE[1] / 2)
         if not recur:
             return Figure5.flags(Figure5.position_common_scale, flags)
         if preset_img is not None:
             img = preset_img
         else:
             img = np.zeros(Figure5.SIZE)
-            ORIGIN = 7 #where the line is
-            img[Figure5.POS_RANGE[0]:Figure5.POS_RANGE[1], ORIGIN] = 1
+            ORIGIN = X - 7 #where the line is
+            img = Figure5.add_scale(img, ORIGIN)
         parameters = 1
         if varspot:
             sizes = [1, 3, 5, 7, 9, 11]
@@ -209,6 +230,21 @@ class Figure5:
 
         return sparse, img, label, parameters
     
+    @staticmethod
+    def add_scale(img, X, diff=0):
+        img[Figure5.POS_RANGE[0]+diff:Figure5.POS_RANGE[1]+1+diff, X] = Figure5.BACKGROUND_OBJECT
+        for i, mark in enumerate(Figure5.POS_SCALE_MARKS):
+            img[mark+diff, X-2:X] = Figure5.BACKGROUND_OBJECT
+            img[mark+diff, X - 4] = Figure5.BACKGROUND_OBJECT
+            if i > 0:
+                img[mark+diff-1, X - 4] = Figure5.BACKGROUND_OBJECT
+            if i > 1:
+                img[mark+diff+1, X - 4] = Figure5.BACKGROUND_OBJECT
+            if i > 2:
+                img[mark+diff,   X - 5] = Figure5.BACKGROUND_OBJECT
+        return img
+
+
     @staticmethod
     def angle(flags=[False, False, False], X=0, Y=0, preset=None, preset_img=None, recur=False, label_val=1) :
         if not recur:
